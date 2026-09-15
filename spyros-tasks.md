@@ -22,15 +22,9 @@ Related plans: [Kostis](kostis-tasks.md) and [Aris](aris-tasks.md).
 
 ## Shared integration contract
 
-- Agree on exact Go signatures with Kostis and Aris before implementing. Test against a fake room and fake capacity-release operation.
-- Kostis owns resources until successful session handoff; Spyros owns them afterward. Define how startup/registration failure after handoff triggers cleanup.
-- Reuse the buffered reader from admission so the first chat message is not lost.
-- Room operations are join, submit, and leave; use client IDs rather than display names for all operations after join.
-- Aris owns chat message formatting, timestamps, history, and announcements. The session transports these without altering their meaning.
-- Outgoing delivery must preserve room order and expose failure without indefinitely blocking room activity. Agree on bounded buffering and write deadlines before coding that policy.
-- Coordinate history replay with queue capacity: a long replay must not overflow a small live-message queue by design.
-- Repeated or simultaneous read/write/room failures converge on one cleanup path. Only registered members produce departure announcements; unused room registration must be rolled back.
-- Any prompts must use the same serialized output path. Agree on prompt ownership and UI protocol behavior so prompts do not become chat/history entries.
+Follow the agreed [Go API and ownership contract](docs/architecture.md#shared-go-api-contract) and [required policies](docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
+
+Own session.Room, session.Start and the Destination implementation. Start returns nil on ownership acceptance, then registration runs under session ownership; returned startup errors leave resources with Kostis. Start the output worker before Join. Preserve the admission reader; use LF/CRLF framing and discard unfinished EOF input. Ignore whitespace-only messages while preserving other spaces; enforce 4,096 bytes and send `Message too long. Maximum is 4096 bytes.\n` after discarding oversized input. Use one output writer, a separate initial history batch, a 256-live-event queue and a ten-second deadline per message. No repeated nc chat prompt or idle-input timeout. Fail signals cleanup without waiting. Cleanup must handle a failure racing with Join's returned ID, remove registered membership and release capacity once.
 
 ## Independent tests and acceptance criteria
 
@@ -76,7 +70,7 @@ Automate transport and input-state logic where practical; manually verify termin
 
 ## Development checkpoints
 
-1. Agree on handoff, room API, cleanup, and delivery-failure contracts.
+1. Prepare the agreed handoff, room API, and failure-signaling declarations.
 2. Demonstrate input/output tests using `net.Pipe` and a fake room.
 3. Complete disconnect, simultaneous failure, and worker-termination tests.
 4. Integrate required chat with Kostis and Aris; run the audit using `nc`.
@@ -84,11 +78,7 @@ Automate transport and input-state logic where practical; manually verify termin
 
 ## Open Questions
 
-- Choose the outgoing write timeout and queue limit. Disconnection policy is approved, but numerical values are not.
-- Finalize history replay strategy with Aris before selecting queue capacity.
-- Decide the plain-`nc` prompt behavior and how the UI distinguishes prompts/control events from chat output.
-- Decide rename/room command syntax and custom-client startup arguments.
-- Confirm whether test-only imports such as `testing` are accepted under the package whitelist.
+Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](docs/notes.md#open-questions).
 
 ## Shared verification and review
 

@@ -1,6 +1,10 @@
 # Mentoring Guide — net-cat (TCPChat)
 
-This file is delivered inside the requested documentation bundle. Its intended location when the Go project is set up is the project root as `AGENTS.md`. In this bundle, the companion files are siblings; after installation, their project-relative paths are `docs/prd.md`, `docs/architecture.md`, `docs/workflow.md`, `docs/notes.md`, `docs/golden_tests.md`, and the subsequently supplied `docs/audit_test.md`.
+## Agreed team contract
+
+Follow [architecture.md](architecture.md) for ownership and shared Go signatures and [notes.md](notes.md) for approved policies. Kostis owns startup/admission/welcome/names; Aris owns room state and rendering; Spyros owns sessions after handoff. Tests use fake collaborators so each person can work independently after shared declarations are prepared. Documentation stays in this docs folder; no root guide is moved by this update.
+
+Ask for user permission before further changes outside the authorized scope. The current update to the three task files and seven docs is authorized. Code implementation and the shared Go skeleton are separate future work.
 
 ## 1. Operating Mode — Mentor
 
@@ -44,7 +48,7 @@ Help the student turn the supplied NetCat subject and audit checklist into a sma
 
 Implement a Go TCP server for up to ten connections. Welcome clients with the supplied penguin, require a nonempty name, deliver each nonempty chat message with the same timestamp/name/body to every named participant including its sender, replay earlier messages to newcomers, announce joins/leaves, and keep remaining clients connected after one leaves. Support clients connecting from two or three different computers. Use goroutines and channels or mutexes.
 
-Default to port `8989`, support the demonstrated one-port command, and show `[USAGE]: ./TCPChat $port` for extra positional arguments. Use `nc` for the demonstrated client interactions. Resolve the introduction's unspecified custom-client mode before adding a separate client executable.
+Default to port `8989`, support the demonstrated one-port command, and show `[USAGE]: ./TCPChat $port` for extra positional arguments. Use `nc` for the demonstrated client interactions. The custom gocui client is an agreed bonus owned by Spyros; its startup/UI protocol remains to be specified.
 
 ## 6. Core Concepts To Teach
 
@@ -68,69 +72,19 @@ Use small functions, readable code, meaningful names, and one clear responsibili
 
 Use useful comments for exported functions/types, shared APIs, non-obvious parsing, ownership of shared data, replay order, cleanup, and exact output formatting. Explain why; avoid comments that merely repeat the code. Keep comments up to date.
 
-Allowed implementation packages are exactly `io`, `log`, `os`, `fmt`, `net`, `sync`, `time`, `bufio`, `errors`, `strings`, and `reflect`. Confirm whether `testing` and any other test-only imports are exempt. Do not silently add `strconv`, `context`, `regexp`, or `os/exec`. The external `gocui` exception is for the optional terminal UI only.
+Allowed implementation packages are exactly `io`, `log`, `os`, `fmt`, `net`, `sync`, `time`, `bufio`, `errors`, `strings`, and `reflect`. The team allows standard-library test helpers in test files; evaluator acceptance remains unverified. Do not silently add `strconv`, `context`, `regexp`, or `os/exec`. The external `gocui` exception is for the optional terminal UI only.
 
-## 8. Mandatory Development Order
+## 8. Development order and independent work
 
-1. Understand `docs/prd.md`.
-2. Review `docs/architecture.md`.
-3. Review `docs/workflow.md`.
-4. Review `docs/notes.md`.
-5. Review `docs/golden_tests.md`.
-6. Read `docs/audit_test.md`, resolve the first affected open questions, and choose the module path and evaluator-compatible Go version.
-7. Prepare only the files needed for the next small task.
-8. Verify command-line argument handling.
-9. Specify and test the exact output strings in the protocol package.
-10. Start one TCP listener, then add safe admission control.
-11. Handle one client's welcome, name, complete lines, and cleanup.
-12. Introduce the shared room, joins/leaves, and nonempty message delivery.
-13. Add history and prove the replay/live ordering boundary with a small example.
-14. Connect the packages and test failures, concurrent clients, and capacity recovery.
-15. Run package tests.
-16. Run golden manual tests.
-17. After implementation is complete, build `TCPChat` and run supplied functional audit checks F01–F18, including clients on different computers; record bonus checks B01–B09 separately. No automated comparator was supplied.
-18. Remove downloaded/generated audit assets from the submission and exclude local binaries, temporary files, and logs.
-19. Refactor only after tests pass, then rerun affected checks.
-20. Prepare for audit review by explaining the design, edge cases, and test evidence.
+Read the PRD, architecture, notes, workflow, golden tests and supplied audit. Prepare the agreed shared declarations once when implementation is authorized. Kostis can then test admission against a fake starter, Aris can test the room with fake destinations/a controlled clock, and Spyros can test sessions with a fake room and net.Pipe. Follow small teaching checkpoints within each person's work rather than requiring another person's completed implementation first.
 
-Work through each item in smaller checkpoints from the workflow. Do not implement optional bonuses before completing the required project.
+Integrate after independent checks, run package and race checks, and complete actual audit F01–F18 including different computers. Record B01–B09 separately after required integration passes. Refactor after checks pass and rerun affected checks. Keep generated artifacts out of submission; prepare students to explain behavior and evidence.
 
-## 9. Project Structure
+## 9. Project structure
 
-Proposed eventual implementation layout:
+Keep main.go small and package logic in internal/server (Kostis), internal/chat (Aris), and internal/session (Spyros). No baseline internal/protocol package is planned. Give each source file matching tests where appropriate. The planned module is net-cat and installed/planned toolchain is Go 1.26.2; evaluator compatibility remains unverified.
 
-```txt
-net-cat/
-├── AGENTS.md
-├── main.go
-├── main_test.go
-├── README.md
-├── go.mod
-├── internal/
-│   ├── server/
-│   │   ├── server.go
-│   │   └── server_test.go
-│   ├── session/
-│   │   ├── session.go
-│   │   └── session_test.go
-│   ├── chat/
-│   │   ├── chat.go
-│   │   └── chat_test.go
-│   └── protocol/
-│       ├── protocol.go
-│       └── protocol_test.go
-└── docs/
-    ├── prd.md
-    ├── architecture.md
-    ├── workflow.md
-    ├── notes.md
-    ├── golden_tests.md
-    └── audit_test.md
-```
-
-`server` owns listening/admission; `session` owns one client's input/output/lifetime; `chat` owns membership/history/order; `protocol` owns pure rendering. Root code coordinates. Every Go source file should have a matching test in the same package where appropriate. Do not put extra Go logic files in the root. Detailed docs belong in `docs/`.
-
-Keep the eventual README short and practical: description, prerequisites, run/test commands, expected input/output, and references to the PRD and golden tests. Do not create or overwrite a README or `.gitignore` without a request. Recommend ignoring actual generated paths such as `/TCPChat`, `/bin/`, and `/tmp/`, plus an agreed log path if that bonus is implemented.
+Bonus logging belongs to Kostis; rename/rooms to Aris; the proposed cmd/tcpchat-client and internal/tui to Spyros. Keep detailed docs here. Do not create implementation files, README or gitignore during documentation-only work.
 
 ## 10. Explanation Style
 
@@ -206,8 +160,8 @@ Ask the student to trace ten reservations followed by an eleventh attempt; a dis
 
 - No argument is a valid default; extra arguments are a usage error.
 - Invalid single ports, occupied ports, and listener failures.
-- Empty names, EOF before naming, and unresolved whitespace/duplicate-name rules.
-- Empty messages versus unresolved whitespace-only message behavior.
+- Empty/oversized names, trimming, duplicate display names with distinct IDs, and EOF before naming.
+- Empty/whitespace-only suppression and preservation of spaces on other messages.
 - LF/CRLF, split reads, multiple lines per read, long lines, and EOF without a final newline.
 - Ten connections, simultaneous admission, excess clients, and released slots.
 - Empty history, concurrent publication/replay, and equal displayed timestamps.
@@ -227,7 +181,7 @@ Start with fixed-time formatter tests and controlled room events. Add real TCP c
 go test ./...
 ```
 
-After the test-import policy is resolved and the platform supports it, run race checks for exercised concurrent paths. Explain that a passing race detector does not prove correct ordering or cover paths the test never executes.
+Where the platform supports it, run race checks for exercised concurrent paths. Explain that a passing race detector does not prove correct ordering or cover paths the test never executes.
 
 ## 16. What Not To Do
 

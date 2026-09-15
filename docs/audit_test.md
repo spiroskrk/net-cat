@@ -1,5 +1,9 @@
 # Audit Test — NetCat
 
+## Team contract
+
+The [architecture](architecture.md) and [agreed policies](notes.md#agreed-required-contract) supplement this checklist. Kostis owns CLI/admission/names, Aris owns room behavior/rendering, and Spyros owns session I/O/cleanup. Those team choices do not alter the supplied audit questions below.
+
 ## Source and Status
 
 Source: the audit checklist supplied by the user in this conversation, followed by “this is the audit test. so take it in mind also.” The functional and bonus questions below preserve that supplied text; stable IDs and formatting have been added for reference.
@@ -20,7 +24,7 @@ The following notes explain how to use the supplied checklist; they are separate
 - F13's placeholder text is preserved exactly below. The concrete subject example `[2020-01-20 16:03:43][Yenlik]:hello` remains the formatter fixture in [golden_tests.md](golden_tests.md); placeholder brackets around `client.message` do not replace that concrete example.
 - The subject's nonempty-name rule, empty-message suppression, maximum of ten connections, and error handling remain required alongside this checklist.
 - Bonus features remain optional. The original subject requires good practices and recommends tests despite their placement in this audit's Bonus section. Matching meaningful tests remain part of this project's development plan.
-- Exact prompt refresh/newline behavior, time zone, input policies, rejection text, and test-only package permissions remain documented in [Open Questions](notes.md#open-questions).
+- Prompt endings, local timestamps, input limits, full-capacity text and test-import project policy are agreed in [notes.md](notes.md). Evaluator acceptance of test imports/toolchain and bonus decisions remain under [Open Questions](notes.md#open-questions).
 
 Future build command:
 

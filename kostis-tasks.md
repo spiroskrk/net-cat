@@ -31,7 +31,7 @@ Related plans: [Aris](aris-tasks.md) and [Spyros](spyros-tasks.md).
    ```
 
 5. Accept connections concurrently and enforce a server-wide maximum of 10. Coordinate capacity reservation and release safely.
-6. Send the exact welcome text, Linux logo, and `[ENTER YOUR NAME]:` prompt from the subject in `zone01-doc-agent-prompt.md`.
+6. Send the exact welcome text, Linux logo, and `[ENTER YOUR NAME]:` prompt from the fixture in [golden_tests.md](docs/golden_tests.md#client-welcome), using the agreed trailing-space name prompt.
 7. Reject empty or whitespace-only names while keeping the connection open. Print the following message, then show the name prompt again:
 
    ```txt
@@ -44,14 +44,9 @@ Related plans: [Aris](aris-tasks.md) and [Spyros](spyros-tasks.md).
 
 ## Shared integration contract
 
-- Keep `main.go` small: argument handling and component wiring; package logic belongs in `internal/`.
-- Before implementation, agree on exact Go signatures together. Work against a fake session starter until Spyros's component is ready.
-- Handoff carries the connection, accepted display name, existing buffered reader, and a capacity-release operation. Preserve bytes buffered during name entry: a newly created reader could lose an already-read first chat message.
-- Define an explicit handoff success/failure result. Before successful transfer, Kostis owns closure and capacity release. After transfer, Spyros owns both.
-- Capacity release must be safe against duplicate cleanup requests and occur exactly once per reserved connection.
-- Admission does not register room membership or send join announcements. Those belong to the session/room flow.
-- A valid-name disconnect before room registration must not create a misleading departure announcement.
-- Never hold a shared capacity lock while waiting for network input or output.
+Follow the agreed [Go API and ownership contract](docs/architecture.md#shared-go-api-contract) and [required policies](docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
+
+Inject a session starter matching session.Start for independent tests. Pass connection, trimmed name, existing buffered reader, release function and room. Nil means ownership transferred; an error means admission still owns closure/release. Release must be idempotent. Count pending names toward ten and send `Chat is full\n` before closing excess connections. Accept digits-only ports 1–65535, including leading zeros; CLI failures use stderr and exit 1. Trim names and enforce 64 bytes after trimming; oversized names get `Name too long. Maximum is 64 bytes.\n` then another `[ENTER YOUR NAME]: ` prompt. Drain oversized input incrementally. No admission code registers membership or announces departures.
 
 ## Independent tests and acceptance criteria
 
@@ -73,7 +68,7 @@ Use a fake session starter and local TCP connections; no real chat room is neede
 | Handoff fails | Admission resources released exactly once |
 | Repeated admission/disconnection | Capacity remains reusable; admission workers terminate |
 
-Keep tests deterministic using explicit completion signals and bounded waits. Exact extra-client feedback and whether name-entry connections count toward capacity are open decisions below.
+Keep tests deterministic using explicit completion signals and bounded waits. Count name-entry connections toward ten and assert the exact full-capacity response from the contract.
 
 ## Bonus tasks — after required integration passes
 
@@ -84,7 +79,7 @@ Keep tests deterministic using explicit completion signals and bounded waits. Ex
 
 ## Development checkpoints
 
-1. Agree on handoff and capacity ownership; demonstrate tests with a fake session.
+1. Prepare the agreed handoff boundary; demonstrate tests with a fake session.
 2. Complete argument and startup tests.
 3. Complete welcome/name validation tests.
 4. Complete capacity and admission cleanup tests.
@@ -93,10 +88,7 @@ Keep tests deterministic using explicit completion signals and bounded waits. Ex
 
 ## Open Questions
 
-- Recommended: count connections entering their names toward the 10 slots; this has not been explicitly approved. Apply the chosen rule consistently in all tests.
-- Recommended full-capacity response: `Chat is full`, then close the extra connection. The exact response still needs agreement.
-- Confirm exact extra flags, logging fields, file location, and log-error behavior.
-- Confirm the package whitelist's treatment of test-only imports such as `testing`.
+Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](docs/notes.md#open-questions).
 
 ## Shared verification and review
 

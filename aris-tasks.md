@@ -10,7 +10,7 @@ Own the planned `internal/chat/` and matching tests. Related plans: [Kostis](kos
 
 1. Assign a unique internal client ID when registering a session. Duplicate display names are allowed; never use names as unique membership keys.
 2. Maintain room membership and synchronize shared state using channels or mutexes.
-3. Accept complete message lines from Spyros's session component. Ignore empty messages and do not store them in history. Confirm whitespace-only message handling before finalizing those tests.
+3. Accept complete message lines from Spyros's session component. Ignore empty messages and do not store them in history. Ignore whitespace-only messages too, preserving spaces in other messages.
 4. Create one formatted message using its server-assigned send/acceptance timestamp and current sender name:
 
    ```txt
@@ -38,14 +38,9 @@ Own the planned `internal/chat/` and matching tests. Related plans: [Kostis](kos
 
 ## Shared integration contract
 
-- Agree on exact Go signatures with Spyros before coding: join, submit message, leave, and outgoing delivery.
-- Join accepts a display name and an outgoing destination and returns a unique client ID or failure. Messages and departures identify clients by ID.
-- The room owns membership, message timestamps, formatted chat output, announcements, history, and ordering. It does not read sockets, close connections, or release server capacity slots.
-- Spyros owns connection lifecycle and invokes leave during cleanup. Repeated leave requests must not duplicate announcements.
-- Outgoing delivery is ordered and reports failure without indefinitely blocking the room. No socket writes under a room-state lock.
-- Agree how registration rollback works when delivery fails during history replay or a join announcement. Do not leave ghost members behind.
-- Define history/live sequencing and prompt ownership together. Proposed sequence for a newcomer: previous chat history, own join announcement, then later events. Treat this ordering as a design proposal until signatures and behavior are finalized.
-- Provide a controllable time source for deterministic tests without requiring live TCP clients.
+Follow the agreed [Go API and ownership contract](docs/architecture.md#shared-go-api-contract) and [required policies](docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
+
+Own `chat.ClientID`, `chat.Destination` and the concrete room implementing Join, Submit and Leave. Join returns an ID or rolls back provisional membership; repeated Leave returns nil, unknown-ID Submit returns an error. Use server-local acceptance time and format each message once, including its newline. Deliver immutable history through Begin, then enqueue the newcomer's own join notice and later events. Report failed destinations through nonblocking Fail; never close sockets or release capacity. Empty/whitespace-only input is suppressed; preserve spaces in other messages. Keep all chat history for the current run, excluding notices and prompts.
 
 ## Independent tests and acceptance criteria
 
@@ -66,7 +61,7 @@ Use fake outgoing destinations and a controlled clock. A server or real socket i
 | Departure followed by more traffic | No further delivery to departed member; room continues working |
 | Failure during registration/replay | No leaked membership or deadlock |
 
-Coordinate history size and outgoing queue capacity with Spyros: valid history replay must not accidentally exceed an ordinary live-message queue and disconnect every newcomer.
+History uses one separate initial batch; it does not occupy the 256 live-event slots. Test events arriving during replay and overflow separately.
 
 ## Bonus tasks — after required integration passes
 
@@ -79,7 +74,7 @@ Coordinate history size and outgoing queue capacity with Spyros: valid history r
 
 ## Development checkpoints
 
-1. Agree on room/session contracts and demonstrate fake-client tests.
+1. Prepare the agreed shared declarations and demonstrate fake-client tests.
 2. Implement and test membership and unique IDs.
 3. Implement formatting, empty-message filtering, and sender-inclusive broadcast.
 4. Implement history and concurrent join ordering.
@@ -88,12 +83,7 @@ Coordinate history size and outgoing queue capacity with Spyros: valid history r
 
 ## Open Questions
 
-- Recommended: treat whitespace-only chat messages as empty. Decide whether to preserve surrounding whitespace on non-empty messages.
-- Recommended: history holds chat messages in memory for the current server run, excluding announcements. Persistence, any history limit, and announcement retention have not been agreed.
-- Finalize outgoing delivery failure signaling, queue limits, and replay strategy with Spyros.
-- Finalize prompt behavior for `nc` and the terminal UI without changing mandatory message delivery.
-- Decide bonus command syntax, room lifecycle, rename announcement wording, and logged events.
-- Confirm test-only packages against the evaluator's whitelist interpretation.
+Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](docs/notes.md#open-questions).
 
 ## Shared verification and review
 
