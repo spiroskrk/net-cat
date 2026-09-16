@@ -10,7 +10,7 @@ Source: the audit checklist supplied by the user in this conversation, followed 
 
 **Overall status: Not run.** No implementation, compilation, network test, code audit, or runtime verdict has been performed by this documentation update. No automated comparator or downloadable audit tool was supplied. Do not treat this checklist as evidence that the project passes.
 
-Use [golden_tests.md](golden_tests.md) for fixtures, package-test coverage, manual procedures, and traceability. The [PRD](prd.md), [architecture](architecture.md), [workflow](workflow.md), [notes](notes.md), and [mentoring guide](AGENTS.md) describe the implementation plan.
+Use [golden_tests.md](golden_tests.md) for fixtures, package-test coverage, manual procedures, and traceability. The [PRD](prd.md), [architecture](architecture.md), [workflow](workflow.md), [notes](notes.md), and [mentoring guide](../AGENTS.md) describe the implementation plan.
 
 ## Preparation and Interpretation Notes
 

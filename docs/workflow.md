@@ -2,7 +2,7 @@
 
 ## 1. Plan and setup
 
-Read [architecture.md](architecture.md), [notes.md](notes.md), [golden_tests.md](golden_tests.md), [prd.md](prd.md) and [audit_test.md](audit_test.md). Follow the mentoring process in [AGENTS.md](AGENTS.md). This update creates documentation only; no implementation checks have run.
+Read [architecture.md](architecture.md), [notes.md](notes.md), [golden_tests.md](golden_tests.md), [prd.md](prd.md) and [audit_test.md](audit_test.md). Follow the mentoring process in [AGENTS.md](../AGENTS.md). This update creates documentation only; no implementation checks have run.
 
 Prepare the agreed shared ClientID/Destination declarations, session.Room interface and injectable session starter boundary together before splitting implementation. Planned module: net-cat; toolchain: Go 1.26.2. These declarations let everyone compile against the same types and test with fakes. Shared API changes need coordination; ordinary internal implementation choices do not require waiting for another person's code.
 
@@ -14,6 +14,30 @@ Prepare the agreed shared ClientID/Destination declarations, session.Room interf
 4. **All three:** integrate, prove name-plus-message preservation, registration rollback, long replay with live events, ten-slot recovery and continued healthy chat. Execute the manual audit on nc, including actual LAN computers.
 5. **Review:** Aris reviews Kostis and explains capacity back to him; Kostis reviews Spyros and explains cleanup back to him; Spyros reviews Aris and explains history/order back to him.
 6. **Bonuses after required integration passes:** agree on rename/room commands and switching (Aris), logging events/files and flags (Kostis), and UI protocol/client arguments (Spyros). Keep nc working. Test cursor/input preservation, single server echo and terminal restoration for the gocui client.
+
+### Small implementation checkpoints
+
+These are steps within each owner's work, not a requirement to wait for another owner's completed implementation. Prepare the shared declarations first, then use fakes. At every step, explain the idea, implement a small piece, run its check, and explain the result before moving on.
+
+| Owner / step | Files or package | Completion checkpoint |
+| --- | --- | --- |
+| Together: shared setup | Planned go.mod, chat shared types, session.Room and starter boundary | Same types/signatures available to all three; each owner can describe who owns a connection before/after handoff |
+| Kostis 1: arguments | main.go and main_test.go | Default/custom ports and exact failures tested without opening sockets |
+| Kostis 2: listener | internal/server | Successful listen and occupied-port failure tested; listener closes cleanly |
+| Kostis 3: reservation | internal/server | Ten unnamed sockets fill capacity; excess response and released-slot reuse verified |
+| Kostis 4: welcome/names | internal/server | Exact penguin/prompt, trimming, duplicate names, 64-byte boundary and retry verified |
+| Kostis 5: handoff | internal/server with fake starter | Name plus first message in one read survives; accepted/rejected transfer has correct ownership |
+| Aris 1: identity/membership | internal/chat with fake destinations | Equal names get distinct IDs; unknown Submit and repeated Leave have agreed results |
+| Aris 2: rendering/broadcast | internal/chat with controlled clock | Exact message/notice text; sender included; whitespace-only messages excluded |
+| Aris 3: replay/order | internal/chat | History A, B and concurrent message C reach newcomer once in order, with original metadata |
+| Aris 4: failures | internal/chat | Failed destination signals cleanup; registration rolls back; healthy destinations continue |
+| Spyros 1: startup | internal/session with fake room/release | Accepted ownership, output worker before Join, assigned ID retained; rejected start leaks no workers |
+| Spyros 2: framing | internal/session with net.Pipe | Split/coalesced lines, admission-buffered input, LF/CRLF, EOF and size boundaries verified |
+| Spyros 3: output | internal/session | One writer, initial replay batch, 256 pending live events, per-message deadlines and quiet clients verified |
+| Spyros 4: cleanup | internal/session | Concurrent read/write/room failures release once; failure racing with Join return leaves no membership |
+| Together: integration | All packages and manual audit | Capacity recovery, long replay/live traffic, sender-inclusive chat, distinct-computer connections and departures verified |
+
+Keep source/test files paired when splitting a package further. The exact test cases and visible strings remain in [golden_tests.md](golden_tests.md); bonus work follows passing required integration.
 
 ## 3. Checkpoints After Each Step
 

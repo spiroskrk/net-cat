@@ -10,6 +10,8 @@ Related plans: [Aris](aris-tasks.md) and [Spyros](spyros-tasks.md).
 
 ## Required tasks
 
+**Initial setup — Kostis:** Create the root `go.mod` for module `net-cat`, using the agreed Go 1.26.2 toolchain plan. Evaluator compatibility remains to be verified. Make the module setup available to Aris and Spyros before independent package implementation; they should not create separate modules for their packages.
+
 1. Parse startup arguments. No argument means port `8989`; one valid port selects that port. Accept port numbers from 1 through 65535.
 2. For excess arguments, print only the required usage line and exit without starting the server:
 
@@ -31,7 +33,7 @@ Related plans: [Aris](aris-tasks.md) and [Spyros](spyros-tasks.md).
    ```
 
 5. Accept connections concurrently and enforce a server-wide maximum of 10. Coordinate capacity reservation and release safely.
-6. Send the exact welcome text, Linux logo, and `[ENTER YOUR NAME]:` prompt from the fixture in [golden_tests.md](docs/golden_tests.md#client-welcome), using the agreed trailing-space name prompt.
+6. Send the exact welcome text, Linux logo, and `[ENTER YOUR NAME]:` prompt from the fixture in [golden_tests.md](../docs/golden_tests.md#client-welcome), using the agreed trailing-space name prompt.
 7. Reject empty or whitespace-only names while keeping the connection open. Print the following message, then show the name prompt again:
 
    ```txt
@@ -44,7 +46,7 @@ Related plans: [Aris](aris-tasks.md) and [Spyros](spyros-tasks.md).
 
 ## Shared integration contract
 
-Follow the agreed [Go API and ownership contract](docs/architecture.md#shared-go-api-contract) and [required policies](docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
+Follow the agreed [Go API and ownership contract](../docs/architecture.md#shared-go-api-contract) and [required policies](../docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
 
 Inject a session starter matching session.Start for independent tests. Pass connection, trimmed name, existing buffered reader, release function and room. Nil means ownership transferred; an error means admission still owns closure/release. Release must be idempotent. Count pending names toward ten and send `Chat is full\n` before closing excess connections. Accept digits-only ports 1–65535, including leading zeros; CLI failures use stderr and exit 1. Trim names and enforce 64 bytes after trimming; oversized names get `Name too long. Maximum is 64 bytes.\n` then another `[ENTER YOUR NAME]: ` prompt. Drain oversized input incrementally. No admission code registers membership or announces departures.
 
@@ -79,7 +81,7 @@ Keep tests deterministic using explicit completion signals and bounded waits. Co
 
 ## Development checkpoints
 
-1. Prepare the agreed handoff boundary; demonstrate tests with a fake session.
+1. Create and share the root `go.mod`, then prepare the agreed handoff boundary; demonstrate tests with a fake session.
 2. Complete argument and startup tests.
 3. Complete welcome/name validation tests.
 4. Complete capacity and admission cleanup tests.
@@ -88,7 +90,7 @@ Keep tests deterministic using explicit completion signals and bounded waits. Co
 
 ## Open Questions
 
-Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](docs/notes.md#open-questions).
+Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](../docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](../docs/notes.md#open-questions).
 
 ## Shared verification and review
 

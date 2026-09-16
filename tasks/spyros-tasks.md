@@ -10,6 +10,8 @@ Related plans: [Kostis](kostis-tasks.md) and [Aris](aris-tasks.md).
 
 ## Required tasks
 
+**Initial declarations — Spyros:** Define `session.Room` and the exported `session.Starter` function type in `internal/session/` before implementing session behavior. `Starter` matches the agreed `Start` signature: connection, accepted name, existing buffered reader, capacity-release function, and `Room`, returning an error. It lets Kostis inject either a fake starter or the eventual real `session.Start`. Share these declarations with the team; the source filename is an implementation choice, not a required `contract.go` filename.
+
 1. Receive an admitted connection, accepted name, existing buffered reader, and capacity-release operation from Kostis.
 2. Register with Aris's room and retain the returned unique client ID. Duplicate names are permitted.
 3. Read complete input lines and pass messages to the room using that ID. Preserve already-buffered input from admission.
@@ -22,7 +24,7 @@ Related plans: [Kostis](kostis-tasks.md) and [Aris](aris-tasks.md).
 
 ## Shared integration contract
 
-Follow the agreed [Go API and ownership contract](docs/architecture.md#shared-go-api-contract) and [required policies](docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
+Follow the agreed [Go API and ownership contract](../docs/architecture.md#shared-go-api-contract) and [required policies](../docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
 
 Own session.Room, session.Start and the Destination implementation. Start returns nil on ownership acceptance, then registration runs under session ownership; returned startup errors leave resources with Kostis. Start the output worker before Join. Preserve the admission reader; use LF/CRLF framing and discard unfinished EOF input. Ignore whitespace-only messages while preserving other spaces; enforce 4,096 bytes and send `Message too long. Maximum is 4096 bytes.\n` after discarding oversized input. Use one output writer, a separate initial history batch, a 256-live-event queue and a ten-second deadline per message. No repeated nc chat prompt or idle-input timeout. Fail signals cleanup without waiting. Cleanup must handle a failure racing with Join's returned ID, remove registered membership and release capacity once.
 
@@ -70,7 +72,7 @@ Automate transport and input-state logic where practical; manually verify termin
 
 ## Development checkpoints
 
-1. Prepare the agreed handoff, room API, and failure-signaling declarations.
+1. Define and share `session.Room` and `session.Starter`, using Aris's shared chat types and the agreed handoff and failure-signaling contract.
 2. Demonstrate input/output tests using `net.Pipe` and a fake room.
 3. Complete disconnect, simultaneous failure, and worker-termination tests.
 4. Integrate required chat with Kostis and Aris; run the audit using `nc`.
@@ -78,7 +80,7 @@ Automate transport and input-state logic where practical; manually verify termin
 
 ## Open Questions
 
-Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](docs/notes.md#open-questions).
+Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](../docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](../docs/notes.md#open-questions).
 
 ## Shared verification and review
 

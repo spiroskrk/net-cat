@@ -1,6 +1,6 @@
 # Technical Notes — NetCat
 
-The [task files](../aris-tasks.md), [Kostis plan](../kostis-tasks.md), and [Spyros plan](../spyros-tasks.md) divide the work. This page records agreed behavior; [architecture.md](architecture.md) defines shared APIs and ownership. No runtime checks were performed by this documentation update.
+The [task files](../tasks/aris-tasks.md), [Kostis plan](../tasks/kostis-tasks.md), and [Spyros plan](../tasks/spyros-tasks.md) divide the work. This page records agreed behavior; [architecture.md](architecture.md) defines shared APIs and ownership. No runtime checks were performed by this documentation update.
 
 ## Agreed required contract
 
@@ -49,6 +49,25 @@ Message too long. Maximum is 4096 bytes.
 
 After either name error, send the name prompt again. Drain an oversized line before processing the next one. Count bytes, not Unicode characters; do not confuse CRLF delimiter bytes with content length. Name trimming and bounded input storage must both hold, including very long surrounding whitespace.
 
+## Beginner glossary
+
+| Term | Plain explanation | In this project |
+| --- | --- | --- |
+| TCP listener | A door where new connections arrive | Kostis listens on the selected port |
+| Connection | One client's two-way byte stream | Transferred from admission to Spyros |
+| Buffered reader | Reads ahead and keeps unused bytes | Must survive name entry so the first message is not lost |
+| Line framing | Finding complete lines in incoming bytes | One socket read can contain part of a line or several lines |
+| Goroutine | A task that can progress alongside others | Reading must not stop outgoing messages |
+| Channel | A way for goroutines to pass values/signals | Can carry room events, queued output or completion signals |
+| Mutex | A lock protecting shared state | Keeps checking/reserving capacity one atomic operation |
+| Race | Concurrent access whose result depends on timing without proper synchronization | Two admissions must not claim the last slot together |
+| Ownership | Responsibility for changing or cleaning up a resource | Kostis before handoff, Spyros afterward |
+| Idempotent cleanup | Calling cleanup again has no extra effect | One released slot and one departure notice |
+| Queue / backpressure | Pending work accumulates when a receiver cannot keep up | 256 pending live events, then disconnect that receiver |
+| Deadlock | Tasks wait on each other and cannot progress | Fail must not wait for cleanup that needs the room's lock |
+| Fake | A small test substitute for another component | Each teammate tests without waiting for the others' implementation |
+| History/live boundary | The point separating replay from new events | Every message appears once when someone joins |
+
 ## Concepts and implementation reminders
 
 TCP is a byte stream: one read may contain half a line or several lines. Admission and session must share the same buffered reader to avoid losing the first message. Input limits must bound retained data, not merely reject a huge string after allocating it.
@@ -60,6 +79,26 @@ Keep room operations independent of blocking socket writes. If history contains 
 Failure signaling must not wait for cleanup while holding room state: cleanup may need to call Leave. A failure during Join can race with the returned ID; ensure a successfully returned registration is eventually removed even if cleanup began first. Test this explicitly.
 
 The history batch is immutable after acceptance. The writer sends it before queued events; the 10-second limit is renewed per message, not for the whole replay. Queue-full behavior during a busy replay is distinct from history itself occupying queue slots.
+
+## Common mistakes to avoid
+
+- Treating a socket read as a complete message rather than framing lines.
+- Creating a new reader after name entry and losing already-buffered chat bytes.
+- Using display names as unique membership keys when duplicates are allowed.
+- Letting unnamed sockets evade the ten-slot count, or checking and reserving in separate unsynchronized operations.
+- Trimming message bodies when only whitespace-only suppression is intended.
+- Allocating an entire oversized line before checking its size.
+- Holding a shared lock while writing to a slow socket or waiting for cleanup.
+- Making Fail synchronously wait for Leave and deadlocking room processing.
+- Missing the returned client ID when cleanup races with Join, leaving a ghost member.
+- Recomputing timestamps during replay or separately for each recipient.
+- Excluding the sender, or mistaking local terminal echo for server delivery.
+- Copying history and registering in separate unordered steps, losing or duplicating messages between them.
+- Filling the live queue with every history item, or applying one ten-second deadline to the entire replay.
+- Writing from multiple goroutines without serialization, or adding an extra newline to already-formatted output.
+- Treating a quiet client as a slow receiver; the deadline applies to outgoing writes, not typing.
+- Closing shared channels from multiple places or releasing capacity more than once.
+- Claiming localhost tests prove LAN access, or a passing race detector proves message ordering.
 
 ## Open Questions
 

@@ -8,9 +8,9 @@ A planned Go TCP group chat for up to **10 simultaneous connections**, usable fr
 
 | Developer | Required work | Bonus work | Task plan |
 | --- | --- | --- | --- |
-| Kostis | Server startup, ports, welcome/name entry, capacity and admission | Additional flags, activity logging and log files | [Kostis's tasks](kostis-tasks.md) |
-| Aris | Membership, broadcasts, history, announcements and synchronization | Renaming and separate chat rooms | [Aris's tasks](aris-tasks.md) |
-| Spyros | Client sessions, ordered delivery, disconnect handling and cleanup | Terminal client using `gocui` | [Spyros's tasks](spyros-tasks.md) |
+| Kostis | Server startup, ports, welcome/name entry, capacity and admission | Additional flags, activity logging and log files | [Kostis's tasks](tasks/kostis-tasks.md) |
+| Aris | Membership, broadcasts, history, announcements and synchronization | Renaming and separate chat rooms | [Aris's tasks](tasks/aris-tasks.md) |
+| Spyros | Client sessions, ordered delivery, disconnect handling and cleanup | Terminal client using `gocui` | [Spyros's tasks](tasks/spyros-tasks.md) |
 
 Agree on shared interfaces first, then develop each component with fake dependencies. Aris reviews Kostis, Spyros reviews Aris, and Kostis reviews Spyros. All three participate in integration, LAN testing, and the audit walkthrough.
 
@@ -125,7 +125,7 @@ The UI must preserve unfinished input and display each server-delivered message 
 
 ## Documentation and remaining decisions
 
-See the [project prompt and task subject](../../../zone01-tools/zone01-doc-agent-prompt.md) and the three linked task plans for scope, boundaries, and open questions. Shared API signatures, full-capacity feedback, treatment of name-entry slots, whitespace-only chat messages, history retention, delivery limits, prompt behavior, bonus command syntax, and logging details still need final decisions.
+See the [project prompt and task subject](../../../zone01-tools/zone01-doc-agent-prompt.md) and the three linked task plans for scope and responsibilities. Shared API signatures and ownership are agreed in [architecture.md](docs/architecture.md#shared-go-api-contract); capacity, input handling, history, delivery limits, and prompt behavior are agreed in [notes.md](docs/notes.md#agreed-required-contract). Remaining questions are evaluator compatibility with Go 1.26.2 and standard-library test helpers, the actual LAN bind configuration, and bonus commands, room behavior, flags, logging, and client/UI interfaces. Track these in [Open Questions](docs/notes.md#open-questions).
 
 The planned documentation scaffold includes `AGENTS.md`, `docs/prd.md`, `docs/architecture.md`, `docs/workflow.md`, `docs/notes.md`, and `docs/golden_tests.md`. These files have not yet been generated; the PRD will hold detailed requirements and golden tests will hold expected test cases.
 

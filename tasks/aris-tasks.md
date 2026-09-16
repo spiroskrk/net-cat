@@ -38,7 +38,7 @@ Own the planned `internal/chat/` and matching tests. Related plans: [Kostis](kos
 
 ## Shared integration contract
 
-Follow the agreed [Go API and ownership contract](docs/architecture.md#shared-go-api-contract) and [required policies](docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
+Follow the agreed [Go API and ownership contract](../docs/architecture.md#shared-go-api-contract) and [required policies](../docs/notes.md#agreed-required-contract). Prepare the shared declarations together once before independent implementation; test against fakes until integration. Changes to shared signatures or meanings require team agreement.
 
 Own `chat.ClientID`, `chat.Destination` and the concrete room implementing Join, Submit and Leave. Join returns an ID or rolls back provisional membership; repeated Leave returns nil, unknown-ID Submit returns an error. Use server-local acceptance time and format each message once, including its newline. Deliver immutable history through Begin, then enqueue the newcomer's own join notice and later events. Report failed destinations through nonblocking Fail; never close sockets or release capacity. Empty/whitespace-only input is suppressed; preserve spaces in other messages. Keep all chat history for the current run, excluding notices and prompts.
 
@@ -83,7 +83,7 @@ History uses one separate initial batch; it does not occupy the 256 live-event s
 
 ## Open Questions
 
-Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](docs/notes.md#open-questions).
+Baseline signatures, limits, input policies, replay, prompts and cleanup rules are agreed in [notes.md](../docs/notes.md). Planned module is `net-cat`, toolchain Go 1.26.2. Standard-library test helpers are approved for test files by the team; evaluator acceptance and toolchain compatibility remain unverified. Remaining bonus/API and LAN deployment choices are listed in [Open Questions](../docs/notes.md#open-questions).
 
 ## Shared verification and review
 

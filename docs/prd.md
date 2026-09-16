@@ -4,7 +4,7 @@
 
 Build a Go TCP group-chat server for up to ten connections, usable through plain `nc` on the same computer and on different LAN computers. Require a name before participation, deliver each accepted message to every member including its sender, replay prior chat messages, announce joins/leaves, and keep other clients operating after a disconnect.
 
-The supplied [audit](audit_test.md) records evaluation questions. [Aris](../aris-tasks.md), [Kostis](../kostis-tasks.md), and [Spyros](../spyros-tasks.md) own the implementation tasks. [notes.md](notes.md#agreed-required-contract) records the user-approved project policies, including choices beyond the audit. [architecture.md](architecture.md) defines the agreed interfaces. This is documentation, not evidence of implemented behavior.
+The supplied [audit](audit_test.md) records evaluation questions. [Aris](../tasks/aris-tasks.md), [Kostis](../tasks/kostis-tasks.md), and [Spyros](../tasks/spyros-tasks.md) own the implementation tasks. [notes.md](notes.md#agreed-required-contract) records the user-approved project policies, including choices beyond the audit. [architecture.md](architecture.md) defines the agreed interfaces. This is documentation, not evidence of implemented behavior.
 
 ## Responsibilities
 
@@ -27,7 +27,7 @@ Kostis owns root startup and server admission, including welcome and names. Spyr
 
 Use [golden_tests.md](golden_tests.md) for exact fixtures and owner-specific cases. All three perform integration and audit F01–F18: build/startup, actual different-computer connections, three-client sender-inclusive broadcast, four-client departure stability, and three-client departure notices. Record observed outcomes only; all runtime checks are currently Not run.
 
-Each person can implement and test their package using fakes after preparing the minimal shared declarations together. Contract changes require coordination. Follow [workflow.md](workflow.md) and the learning process in [AGENTS.md](AGENTS.md).
+Each person can implement and test their package using fakes after preparing the minimal shared declarations together. Contract changes require coordination. Follow [workflow.md](workflow.md) and the learning process in [AGENTS.md](../AGENTS.md).
 
 ## Bonuses and exclusions
 

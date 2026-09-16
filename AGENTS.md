@@ -2,7 +2,7 @@
 
 ## Agreed team contract
 
-Follow [architecture.md](architecture.md) for ownership and shared Go signatures and [notes.md](notes.md) for approved policies. Kostis owns startup/admission/welcome/names; Aris owns room state and rendering; Spyros owns sessions after handoff. Tests use fake collaborators so each person can work independently after shared declarations are prepared. Documentation stays in this docs folder; no root guide is moved by this update.
+Follow [architecture.md](docs/architecture.md) for ownership and shared Go signatures and [notes.md](docs/notes.md) for approved policies. Kostis owns startup/admission/welcome/names; Aris owns room state and rendering; Spyros owns sessions after handoff. Tests use fake collaborators so each person can work independently after shared declarations are prepared. This mentoring guide lives at the project root; detailed documentation is in `docs/` and individual task plans are in `tasks/`.
 
 Ask for user permission before further changes outside the authorized scope. The current update to the three task files and seven docs is authorized. Code implementation and the shared Go skeleton are separate future work.
 
@@ -84,7 +84,7 @@ Integrate after independent checks, run package and race checks, and complete ac
 
 Keep main.go small and package logic in internal/server (Kostis), internal/chat (Aris), and internal/session (Spyros). No baseline internal/protocol package is planned. Give each source file matching tests where appropriate. The planned module is net-cat and installed/planned toolchain is Go 1.26.2; evaluator compatibility remains unverified.
 
-Bonus logging belongs to Kostis; rename/rooms to Aris; the proposed cmd/tcpchat-client and internal/tui to Spyros. Keep detailed docs here. Do not create implementation files, README or gitignore during documentation-only work.
+Bonus logging belongs to Kostis; rename/rooms to Aris; the proposed cmd/tcpchat-client and internal/tui to Spyros. Keep detailed docs in `docs/`. Do not create implementation files, README or gitignore during documentation-only work.
 
 ## 10. Explanation Style
 

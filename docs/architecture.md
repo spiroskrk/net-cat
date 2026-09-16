@@ -4,13 +4,93 @@
 
 | Owner | Files and responsibilities | Independent test substitutes | Reviewer |
 | --- | --- | --- | --- |
-| [Kostis](../kostis-tasks.md) | `main.go`, `main_test.go`, `internal/server/`: CLI, listening, reservation, welcome/name validation, handoff | Fake session starter and local TCP clients | Aris |
-| [Aris](../aris-tasks.md) | `internal/chat/`: IDs, membership, timestamps, rendering, history, ordered delivery, announcements | Fake destinations and controlled clock | Spyros |
-| [Spyros](../spyros-tasks.md) | `internal/session/`: room registration, line input, serialized socket output, cleanup | Fake room, fake release operation, `net.Pipe` | Kostis |
+| [Kostis](../tasks/kostis-tasks.md) | `main.go`, `main_test.go`, `internal/server/`: CLI, listening, reservation, welcome/name validation, handoff | Fake session starter and local TCP clients | Aris |
+| [Aris](../tasks/aris-tasks.md) | `internal/chat/`: IDs, membership, timestamps, rendering, history, ordered delivery, announcements | Fake destinations and controlled clock | Spyros |
+| [Spyros](../tasks/spyros-tasks.md) | `internal/session/`: room registration, line input, serialized socket output, cleanup | Fake room, fake release operation, `net.Pipe` | Kostis |
 
 Keep root logic small. Each source file gets matching tests where appropriate. Baseline packages are server, chat and session; there is no separate protocol package. Detailed policies and exact errors are in [notes.md](notes.md).
 
 Planned module: `net-cat`; planned toolchain: Go 1.26.2, pending evaluator verification. No implementation or module file is created by this documentation update. Bonus paths are `internal/activitylog/` (Kostis), and proposed `cmd/tcpchat-client/` and `internal/tui/` (Spyros).
+
+## Project directory tree
+
+Target layout for the required implementation. `AGENTS.md`, `README.md`, `tasks/`, and `docs/` already exist in the locations shown. `go.mod`, Go source files, tests, and `internal/` are planned; this tree does not create them. Source/test names illustrate the starting layout and may be split into smaller files as needed.
+
+```txt
+net-cat/
+├── AGENTS.md
+├── README.md
+├── go.mod                       # Planned module: net-cat
+├── main.go                      # Kostis: CLI and application wiring
+├── main_test.go
+├── tasks/
+│   ├── aris-tasks.md
+│   ├── kostis-tasks.md
+│   └── spyros-tasks.md
+├── internal/
+│   ├── server/                  # Kostis: listener, admission, welcome, names
+│   │   ├── server.go
+│   │   └── server_test.go
+│   ├── chat/                    # Aris: room, shared types, rendering, history
+│   │   ├── chat.go
+│   │   └── chat_test.go
+│   └── session/                 # Spyros: Room interface, I/O, cleanup
+│       ├── session.go
+│       └── session_test.go
+└── docs/
+    ├── architecture.md
+    ├── prd.md
+    ├── workflow.md
+    ├── notes.md
+    ├── golden_tests.md
+    └── audit_test.md
+```
+
+Proposed bonus additions, after required integration passes; confirm the terminal client's final layout before implementation:
+
+```txt
+net-cat/
+├── cmd/
+│   └── tcpchat-client/          # Spyros: bonus client entry point
+└── internal/
+    ├── activitylog/             # Kostis: activity/file logging and tests
+    └── tui/                     # Spyros: gocui interface and tests
+```
+
+Aris's rename and room bonuses extend `internal/chat/`. Keep the audited server entry point at root `main.go`; the bonus client has a separate entry point. Generated binaries and logs are excluded from these source trees.
+
+## Data flow
+
+```txt
+CLI arguments
+    |
+    v
+main.go (Kostis): validate port, wire components
+    |
+    v
+server (Kostis): listen -> accept -> reserve slot
+    |
+    v
+welcome -> read/trim/validate name
+    |
+    | connection + name + existing reader + release function
+    v
+session.Start (Spyros): accept ownership -> start output worker -> Join
+    |                                                        |
+    | complete input lines -> Submit(client ID, message)      |
+    +--------------------------+-----------------------------+
+                               v
+chat (Aris): membership -> timestamp/render -> history/order
+                               |
+                    Begin(history), then Enqueue(events)
+                               |
+                               v
+session writer (Spyros): history first -> queued output -> client
+```
+
+The same session reads input and sends output concurrently. Room methods receive complete messages, never raw socket reads. A new member receives history, its own join notice, then later events; the sender receives its own server-formatted messages too.
+
+Before a successful handoff, failures return to Kostis's admission cleanup. After handoff, read/write/room failures converge on Spyros's cleanup: close the connection, finish workers, leave registered membership, and release the slot once. See the error table below for each boundary.
 
 ## Shared Go API contract
 
@@ -75,6 +155,26 @@ One writer serializes history, events and session-local error lines. The latter 
 Spyros closes the socket to unblock pending I/O, terminates workers, removes registered membership, and releases capacity once. Aris never closes sockets, releases admission capacity, or performs blocking network writes under room state. Capacity accounting must also avoid holding its lock during I/O.
 
 Test failures before handoff, during Join, during replay, and after successful registration independently. Use explicit completion signals, not arbitrary sleeps, to prove workers terminate.
+
+## Error ownership and response
+
+| Failure or condition | Owner and response | Effect on other clients |
+| --- | --- | --- |
+| Extra CLI arguments | Kostis: usage only on stderr, exit 1; no listener | No new server starts |
+| Invalid port | Kostis: invalid-port explanation plus usage on stderr, exit 1 | No new server starts |
+| Bind failure | Kostis: startup error on stderr, exit 1; no successful-listen line | An already-running server is unaffected |
+| Accept failure after startup | Kostis: handle/report listener failure; any retry must be deliberate and bounded; fatal shutdown must clean up owned resources | Do not leave reservations or workers behind |
+| All ten slots occupied | Kostis: send `Chat is full\n`, close excess connection | Existing clients continue |
+| Empty/whitespace-only or oversized name | Kostis: exact name error, drain oversized line when needed, prompt again | Reservation remains with that connection |
+| Disconnect before handoff or rejected Start | Kostis: close and release once; no room departure notice | Slot becomes reusable |
+| Oversized chat line | Spyros: discard incrementally, send exact size error through serialized output, continue | No broadcast/history entry |
+| Empty/whitespace-only chat | Aris suppresses it; Spyros may filter it too | No broadcast/history entry |
+| Join fails before registration completes | Aris rolls back provisional membership; Spyros closes/releases after handoff | No false departure or ghost member |
+| Submit uses unknown ID | Aris returns an error; session handles failure through its lifecycle path | Room remains usable |
+| Repeated Leave | Aris returns success without a second notice | Membership changes once |
+| Socket read/write failure, timeout, or full live queue | Spyros cleans up once; Aris reports failed destinations through Fail without blocking | Only the affected client disconnects |
+
+Exact client/CLI error strings are in [notes.md](notes.md#exact-error-text). Unexpected I/O diagnostics must not become broadcast/history entries. Avoid duplicate error reporting and avoid holding room/capacity locks while waiting for network I/O or cleanup.
 
 ## Bonuses
 
