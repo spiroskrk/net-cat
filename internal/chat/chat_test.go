@@ -1,1 +1,174 @@
 package chat
+
+import (
+	"sync"
+	"testing"
+	"time"
+)
+
+// fakeDestination records what the room sends to one member, so room tests
+// need no session or socket.
+type fakeDestination struct {
+	mu sync.Mutex
+
+	history []string // whatever Begin received
+	live    []string // every Enqueue, in order
+	failed  []error  // every Fail
+
+	beginCalls int   // Begin must happen exactly once
+	enqueueErr error // when set, every Enqueue fails with it
+}
+
+func (f *fakeDestination) Begin(history []string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.beginCalls++
+	f.history = append(f.history, history...)
+	return nil
+}
+
+func (f *fakeDestination) Enqueue(text string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.enqueueErr != nil {
+		return f.enqueueErr
+	}
+	f.live = append(f.live, text)
+	return nil
+}
+
+func (f *fakeDestination) Fail(err error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.failed = append(f.failed, err)
+}
+
+// snapshot returns copies, so a test can read safely while the room still runs.
+func (f *fakeDestination) snapshot() (history, live []string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return append([]string(nil), f.history...), append([]string(nil), f.live...)
+}
+
+// fixedClock returns a clock frozen at t, so formatted output is predictable.
+func fixedClock(t time.Time) func() time.Time {
+	return func() time.Time { return t }
+}
+
+// testTime is the subject's example moment, reused across tests.
+var testTime = time.Date(2020, 1, 20, 16, 3, 43, 0, time.UTC)
+
+func TestFormatMessage(t *testing.T) {
+	cases := []struct {
+		name string
+		who  string
+		body string
+		want string
+	}{
+		{"subject example", "Yenlik", "hello", "[2020-01-20 16:03:43][Yenlik]:hello\n"},
+		{"spaces preserved", "Lee", "  hi  ", "[2020-01-20 16:03:43][Lee]:  hi  \n"},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := formatMessage(testTime, c.who, c.body); got != c.want {
+				t.Errorf("formatMessage()\n got: %q\nwant: %q", got, c.want)
+			}
+		})
+	}
+}
+
+func TestFormatNotice(t *testing.T) {
+	if got, want := formatNotice("Lee", joinEvent), "Lee has joined our chat...\n"; got != want {
+		t.Errorf("join notice\n got: %q\nwant: %q", got, want)
+	}
+	if got, want := formatNotice("Lee", leaveEvent), "Lee has left our chat...\n"; got != want {
+		t.Errorf("leave notice\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestJoinGivesDuplicateNamesDistinctIDs(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	first, second := &fakeDestination{}, &fakeDestination{}
+
+	id1, err := room.Join("Lee", first)
+	if err != nil {
+		t.Fatalf("first join: %v", err)
+	}
+	id2, err := room.Join("Lee", second)
+	if err != nil {
+		t.Fatalf("second join: %v", err)
+	}
+
+	if id1 == id2 {
+		t.Fatalf("duplicate names share ID %d; names must not be membership keys", id1)
+	}
+
+	_, live := first.snapshot()
+	want := "Lee has joined our chat...\n"
+	if len(live) != 2 || live[0] != want || live[1] != want {
+		t.Errorf("first member received %q, want two join notices", live)
+	}
+}
+
+func TestJoinBeginsOnceWithEmptyHistory(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	dest := &fakeDestination{}
+
+	if _, err := room.Join("Yenlik", dest); err != nil {
+		t.Fatalf("join: %v", err)
+	}
+
+	history, live := dest.snapshot()
+	if dest.beginCalls != 1 {
+		t.Errorf("beginCalls = %d, want exactly 1", dest.beginCalls)
+	}
+	if len(history) != 0 {
+		t.Errorf("history = %q, want empty", history)
+	}
+	if len(live) != 1 || live[0] != "Yenlik has joined our chat...\n" {
+		t.Errorf("live = %q, want the newcomer's own join notice", live)
+	}
+}
+
+func TestJoinRollsBackWhenBeginFails(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	existing := &fakeDestination{}
+	if _, err := room.Join("Lee", existing); err != nil {
+		t.Fatalf("setup join: %v", err)
+	}
+
+	broken := &failingBegin{}
+	if _, err := room.Join("Ghost", broken); err == nil {
+		t.Fatal("join succeeded with a failing Begin, want an error")
+	}
+
+	room.mu.Lock()
+	count := len(room.members)
+	room.mu.Unlock()
+	if count != 1 {
+		t.Errorf("members = %d, want 1; the rejected join left a ghost", count)
+	}
+
+	_, live := existing.snapshot()
+	if len(live) != 1 {
+		t.Errorf("existing member received %q, want only its own join notice", live)
+	}
+}
+
+// failingBegin rejects the history batch, simulating a session that died
+// during replay.
+type failingBegin struct {
+	fakeDestination
+}
+
+func (f *failingBegin) Begin([]string) error {
+	return errBeginFailed
+}
+
+var errBeginFailed = errTest("begin failed")
+
+// errTest is a tiny error type, so tests need no extra imports.
+type errTest string
+
+func (e errTest) Error() string { return string(e) }
