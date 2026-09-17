@@ -133,6 +133,27 @@ func (r *Room) Submit(id ClientID, message string) error {
 	return nil
 }
 
+// Leave removes a member and tells the others once. Calling it again for the
+// same ID succeeds silently: the session may reach cleanup from two paths.
+func (r *Room) Leave(id ClientID) error {
+	r.mu.Lock()
+
+	m, ok := r.members[id]
+	if !ok {
+		r.mu.Unlock()
+		return nil
+	}
+
+	name := m.name
+	delete(r.members, id)
+	failed := r.broadcastLocked(formatNotice(name, leaveEvent))
+
+	r.mu.Unlock()
+
+	reportFailures(failed)
+	return nil
+}
+
 // failure pairs a broken destination with the error it reported, so Fail can be
 // called after the room lock is released.
 type failure struct {

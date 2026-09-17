@@ -247,3 +247,87 @@ func TestSubmitRejectsUnknownID(t *testing.T) {
 		t.Errorf("rejected message still reached members: %q", after[len(before):])
 	}
 }
+
+func TestNewMemberReceivesHistoryThenLiveEvents(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	first := &fakeDestination{}
+
+	id1, err := room.Join("Yenlik", first)
+	if err != nil {
+		t.Fatalf("join Yenlik: %v", err)
+	}
+	if err := room.Submit(id1, "hello"); err != nil {
+		t.Fatalf("submit hello: %v", err)
+	}
+	if err := room.Submit(id1, "How are you?"); err != nil {
+		t.Fatalf("submit second: %v", err)
+	}
+
+	newcomer := &fakeDestination{}
+	if _, err := room.Join("Lee", newcomer); err != nil {
+		t.Fatalf("join Lee: %v", err)
+	}
+	if err := room.Submit(id1, "welcome"); err != nil {
+		t.Fatalf("submit welcome: %v", err)
+	}
+
+	history, live := newcomer.snapshot()
+
+	wantHistory := []string{
+		"[2020-01-20 16:03:43][Yenlik]:hello\n",
+		"[2020-01-20 16:03:43][Yenlik]:How are you?\n",
+	}
+	if len(history) != len(wantHistory) {
+		t.Fatalf("history = %q, want %q", history, wantHistory)
+	}
+	for i := range wantHistory {
+		if history[i] != wantHistory[i] {
+			t.Errorf("history[%d] = %q, want %q", i, history[i], wantHistory[i])
+		}
+	}
+
+	wantLive := []string{
+		"Lee has joined our chat...\n",
+		"[2020-01-20 16:03:43][Yenlik]:welcome\n",
+	}
+	if len(live) != len(wantLive) {
+		t.Fatalf("live = %q, want %q", live, wantLive)
+	}
+	for i := range wantLive {
+		if live[i] != wantLive[i] {
+			t.Errorf("live[%d] = %q, want %q", i, live[i], wantLive[i])
+		}
+	}
+}
+
+func TestLeaveAnnouncesOnceAndIsIdempotent(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	staying, leaving := &fakeDestination{}, &fakeDestination{}
+
+	if _, err := room.Join("Yenlik", staying); err != nil {
+		t.Fatalf("join Yenlik: %v", err)
+	}
+	id, err := room.Join("Lee", leaving)
+	if err != nil {
+		t.Fatalf("join Lee: %v", err)
+	}
+	_, before := staying.snapshot()
+
+	if err := room.Leave(id); err != nil {
+		t.Fatalf("first leave: %v", err)
+	}
+	if err := room.Leave(id); err != nil {
+		t.Errorf("repeated leave = %v, want nil", err)
+	}
+
+	_, after := staying.snapshot()
+	got := after[len(before):]
+	want := "Lee has left our chat...\n"
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("remaining member received %q, want exactly one %q", got, want)
+	}
+
+	if err := room.Submit(id, "ghost"); err == nil {
+		t.Error("Submit after Leave returned nil, want an error")
+	}
+}
