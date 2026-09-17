@@ -55,3 +55,33 @@ func TestParsePortInvalid(t *testing.T) {
 		}
 	}
 }
+
+func TestParsePortLeadingZeros(t *testing.T) {
+	port, err := parsePort([]string{"02525"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != 2525 {
+		t.Fatalf("got port %d, want 2525", port)
+	}
+}
+
+func TestParsePortMinimum(t *testing.T) {
+	port, err := parsePort([]string{"1"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != 1 {
+		t.Fatalf("got port %d, want 1", port)
+	}
+}
+
+func TestParsePortMaximum(t *testing.T) {
+	port, err := parsePort([]string{"65535"})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if port != 65535 {
+		t.Fatalf("got port %d, want 65535", port)
+	}
+}
