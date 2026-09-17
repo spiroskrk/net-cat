@@ -331,3 +331,36 @@ func TestLeaveAnnouncesOnceAndIsIdempotent(t *testing.T) {
 		t.Error("Submit after Leave returned nil, want an error")
 	}
 }
+
+func TestBrokenDestinationDoesNotStopHealthyOnes(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	healthy := &fakeDestination{}
+	broken := &fakeDestination{enqueueErr: errTest("write failed")}
+
+	id, err := room.Join("Yenlik", healthy)
+	if err != nil {
+		t.Fatalf("join Yenlik: %v", err)
+	}
+	if _, err := room.Join("Lee", broken); err != nil {
+		t.Fatalf("join Lee: %v", err)
+	}
+	_, before := healthy.snapshot()
+
+	if err := room.Submit(id, "hello"); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+
+	_, after := healthy.snapshot()
+	got := after[len(before):]
+	want := "[2020-01-20 16:03:43][Yenlik]:hello\n"
+	if len(got) != 1 || got[0] != want {
+		t.Errorf("healthy member received %q, want %q", got, want)
+	}
+
+	broken.mu.Lock()
+	failures := len(broken.failed)
+	broken.mu.Unlock()
+	if failures == 0 {
+		t.Error("broken destination was never told to clean up")
+	}
+}
