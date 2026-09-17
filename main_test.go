@@ -36,7 +36,7 @@ func TestParsePortTooManyArguments(t *testing.T) {
 }
 
 func TestParsePortInvalid(t *testing.T) {
-	inputs := []string{"", "25x5", "0", "65536"}
+	inputs := []string{"", "25x5", "0", "65536", "-1", "+2525", " 2525", "2525 ", "999999999999999999999999"}
 	wantError := "Invalid port. Please use a port number between 1 and 65535.\n[USAGE]: ./TCPChat $port"
 
 	for _, v := range inputs {
@@ -53,6 +53,7 @@ func TestParsePortInvalid(t *testing.T) {
 		if err.Error() != wantError {
 			t.Fatalf("input %q: got error %q, want %q", v, err.Error(), wantError)
 		}
+
 	}
 }
 

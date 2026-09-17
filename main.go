@@ -1,6 +1,12 @@
 package main
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+	"net"
+	"net-cat/internal/server"
+	"os"
+)
 
 func parsePort(p []string) (int, error) {
 	if len(p) == 0 {
@@ -28,4 +34,30 @@ func parsePort(p []string) (int, error) {
 		return 0, errors.New("Invalid port. Please use a port number between 1 and 65535.\n[USAGE]: ./TCPChat $port")
 	}
 	return port, nil
+}
+
+func main() {
+	port, err := parsePort(os.Args[1:])
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+
+	defer listener.Close()
+
+	fmt.Printf("Listening on the port :%d\n", port)
+	for {
+		conn, err := listener.Accept()
+
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return
+		}
+		go server.HandleConnection(conn)
+	}
 }
