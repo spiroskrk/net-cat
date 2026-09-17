@@ -172,3 +172,78 @@ var errBeginFailed = errTest("begin failed")
 type errTest string
 
 func (e errTest) Error() string { return string(e) }
+
+func TestSubmitReachesEveryoneIncludingSender(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	a, b, c := &fakeDestination{}, &fakeDestination{}, &fakeDestination{}
+
+	idA, err := room.Join("Yenlik", a)
+	if err != nil {
+		t.Fatalf("join Yenlik: %v", err)
+	}
+	if _, err := room.Join("Lee", b); err != nil {
+		t.Fatalf("join Lee: %v", err)
+	}
+	if _, err := room.Join("Kim", c); err != nil {
+		t.Fatalf("join Kim: %v", err)
+	}
+
+	if err := room.Submit(idA, "hello"); err != nil {
+		t.Fatalf("submit: %v", err)
+	}
+
+	want := "[2020-01-20 16:03:43][Yenlik]:hello\n"
+	for name, dest := range map[string]*fakeDestination{"sender": a, "second": b, "third": c} {
+		_, live := dest.snapshot()
+		if len(live) == 0 || live[len(live)-1] != want {
+			t.Errorf("%s last received %q, want %q", name, live, want)
+		}
+	}
+}
+
+func TestSubmitIgnoresWhitespaceOnly(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	dest := &fakeDestination{}
+
+	id, err := room.Join("Yenlik", dest)
+	if err != nil {
+		t.Fatalf("join: %v", err)
+	}
+	_, before := dest.snapshot()
+
+	for _, blank := range []string{"", "   ", "\t", " \t "} {
+		if err := room.Submit(id, blank); err != nil {
+			t.Errorf("Submit(%q) = %v, want nil", blank, err)
+		}
+	}
+
+	_, after := dest.snapshot()
+	if len(after) != len(before) {
+		t.Errorf("blank input was delivered: %q", after[len(before):])
+	}
+
+	room.mu.Lock()
+	n := len(room.history)
+	room.mu.Unlock()
+	if n != 0 {
+		t.Errorf("history has %d entries, want 0", n)
+	}
+}
+
+func TestSubmitRejectsUnknownID(t *testing.T) {
+	room := NewRoom(fixedClock(testTime))
+	dest := &fakeDestination{}
+	if _, err := room.Join("Yenlik", dest); err != nil {
+		t.Fatalf("join: %v", err)
+	}
+	_, before := dest.snapshot()
+
+	if err := room.Submit(ClientID(999), "hello"); err == nil {
+		t.Fatal("Submit with unknown ID returned nil, want an error")
+	}
+
+	_, after := dest.snapshot()
+	if len(after) != len(before) {
+		t.Errorf("rejected message still reached members: %q", after[len(before):])
+	}
+}

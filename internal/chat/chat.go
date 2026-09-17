@@ -3,6 +3,7 @@ package chat
 import (
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 )
@@ -104,6 +105,32 @@ func (r *Room) Join(name string, output Destination) (ClientID, error) {
 
 	reportFailures(failed)
 	return id, nil
+}
+
+// Submit accepts one complete message from a registered member, records it in
+// history with a single acceptance timestamp, and delivers it to everyone
+// including the sender.
+func (r *Room) Submit(id ClientID, message string) error {
+	if strings.TrimSpace(message) == "" {
+		return nil // whitespace-only input never reaches the chat or history
+	}
+
+	r.mu.Lock()
+
+	m, ok := r.members[id]
+	if !ok {
+		r.mu.Unlock()
+		return errors.New("chat: unknown client ID")
+	}
+
+	line := formatMessage(r.now(), m.name, message)
+	r.history = append(r.history, line)
+	failed := r.broadcastLocked(line)
+
+	r.mu.Unlock()
+
+	reportFailures(failed)
+	return nil
 }
 
 // failure pairs a broken destination with the error it reported, so Fail can be
