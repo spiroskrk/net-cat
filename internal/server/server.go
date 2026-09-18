@@ -117,3 +117,39 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	}
 	handedOff = true
 }
+
+func NewServer(starter session.Starter, room session.Room) *Server {
+	srv := Server{sessionStart: starter, room: room}
+	return &srv
+}
+
+func readName(r *bufio.Reader) (string, bool, error) {
+	var name []byte
+	tooLong := false
+	for {
+		chunk, err := r.ReadSlice('\n')
+
+		for _, b := range chunk {
+			if b == '\n' {
+				break
+			}
+			if len(name) == 0 && b == ' ' {
+				continue
+			}
+			if len(name) < 64 {
+				name = append(name, b)
+			} else if b != ' ' {
+				tooLong = true
+			}
+		}
+		if err == nil {
+			break
+		}
+
+		if err != bufio.ErrBufferFull {
+			return "", false, err
+		}
+
+	}
+	return strings.TrimSpace(string(name)), tooLong, nil
+}
