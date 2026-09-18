@@ -117,3 +117,8 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	}
 	handedOff = true
 }
+
+func NewServer(starter session.Starter, room session.Room) *Server {
+	srv := Server{sessionStart: starter, room: room}
+	return &srv
+}
