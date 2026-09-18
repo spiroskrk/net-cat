@@ -51,6 +51,7 @@ func main() {
 	defer listener.Close()
 
 	fmt.Printf("Listening on the port :%d\n", port)
+	srv := server.Server{}
 	for {
 		conn, err := listener.Accept()
 
@@ -58,6 +59,6 @@ func main() {
 			fmt.Fprintln(os.Stderr, err)
 			return
 		}
-		go server.HandleConnection(conn)
+		go srv.HandleConnection(conn)
 	}
 }

@@ -1,8 +1,28 @@
 # Mentoring Guide — net-cat (TCPChat)
 
+## Documentation Loading Rule
+
+Do not automatically read all project documentation at the start of a session.
+
+Start with this `AGENTS.md` and the developer-specific task file relevant to the current user, when applicable.
+
+For each implementation step:
+1. Identify the current task and scope first.
+2. Consult only the documentation relevant to that task.
+3. Read `docs/prd.md` when exact project requirements or acceptance criteria are needed.
+4. Read `docs/architecture.md` when package boundaries, shared APIs, ownership, or data flow are relevant.
+5. Read `docs/workflow.md` when implementation order or checkpoints are relevant.
+6. Read `docs/notes.md` when agreed technical decisions, reminders, or open questions are relevant.
+7. Read `docs/golden_tests.md` when expected behavior, edge cases, fixtures, or testing guidance are relevant.
+8. Read audit documentation only when preparing for or verifying audit requirements.
+
+Do not load unrelated bonus, audit, testing, architecture, or implementation material merely because it exists.
+
+When the current task can be answered from already loaded context, do not read additional documentation.
+
 ## Agreed team contract
 
-Follow [architecture.md](docs/architecture.md) for ownership and shared Go signatures and [notes.md](docs/notes.md) for approved policies. Kostis owns startup/admission/welcome/names; Aris owns room state and rendering; Spyros owns sessions after handoff. Tests use fake collaborators so each person can work independently after shared declarations are prepared. This mentoring guide lives at the project root; detailed documentation is in `docs/` and individual task plans are in `tasks/`.
+Use [architecture.md](docs/architecture.md) as the source of truth for ownership and shared Go signatures when that information is relevant, and [notes.md](docs/notes.md) for approved policies when needed. Kostis owns startup/admission/welcome/names; Aris owns room state and rendering; Spyros owns sessions after handoff. Tests use fake collaborators so each person can work independently after shared declarations are prepared. This mentoring guide lives at the project root; detailed documentation is in `docs/` and individual task plans are in `tasks/`.
 
 Ask for user permission before further changes outside the authorized scope. The current update to the three task files and seven docs is authorized. Code implementation and the shared Go skeleton are separate future work.
 
@@ -76,7 +96,7 @@ Allowed implementation packages are exactly `io`, `log`, `os`, `fmt`, `net`, `sy
 
 ## 8. Development order and independent work
 
-Read the PRD, architecture, notes, workflow, golden tests and supplied audit. Prepare the agreed shared declarations once when implementation is authorized. Kostis can then test admission against a fake starter, Aris can test the room with fake destinations/a controlled clock, and Spyros can test sessions with a fake room and net.Pipe. Follow small teaching checkpoints within each person's work rather than requiring another person's completed implementation first.
+Follow the Documentation Loading Rule above. Prepare the agreed shared declarations once when implementation is authorized. Kostis can then test admission against a fake starter, Aris can test the room with fake destinations/a controlled clock, and Spyros can test sessions with a fake room and net.Pipe. Follow small teaching checkpoints within each person's work rather than requiring another person's completed implementation first.
 
 Integrate after independent checks, run package and race checks, and complete actual audit F01–F18 including different computers. Record B01–B09 separately after required integration passes. Refactor after checks pass and rerun affected checks. Keep generated artifacts out of submission; prepare students to explain behavior and evidence.
 
