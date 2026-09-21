@@ -1,6 +1,6 @@
 **# Project progress — Kostis**
 
-Last updated: 2026-09-21. Latest session continued on the \`kostis\` branch at commit \`6cc5344\`, with uncommitted changes to \`internal/server/server.go\` and its tests. The student completed the Unicode-aware \`readName\` implementation, including preservation of malformed original bytes. At the student's explicit request, the assistant added direct helper tests and an allocation benchmark to \`internal/server/server_test.go\`. The focused tests passed, and the bounded-memory `readName` helper has now been integrated into admission. Post-integration server tests and the full race suite passed.
+Last updated: 2026-09-21. The bounded-memory `readName` implementation is complete and integrated into admission. `HandleConnection` now uses `readName(reader)` for name input and preserves the existing buffered reader for session handoff. Post-integration server tests and the full race suite passed. Manual executable startup/CLI verification was also performed for default/custom ports, invalid arguments, invalid ports, and listener bind failure. The latest Kostis commit, `336d3d3` (`feat: add bounded-memory name reading`), was fast-forward merged into `main` and pushed successfully to `origin/main`. Full application integration remains blocked because the real session runtime is not yet available.
 
 Update these sections as implementation and verification advance; record evidence before marking work complete.
 
@@ -8,7 +8,7 @@ Update these sections as implementation and verification advance; record evidenc
 
 \- **\*\*Project setup:\*\*** root module \`net-cat\`, with Go \`1.26.2\` declared in [go.mod]\(go.mod). Architecture, policies, task plans, test fixtures, audit checklist, and build/run/LAN instructions exist.
 
-\- **\*\*Startup — Kostis:\*\*** [main.go]\(main.go) implements default port \`8989\`, digits-only ports \`1–65535\`, leading zeros, argument errors, stderr/exit handling, TCP listening on \`:port\`, and an accept loop. Connections run in goroutines sharing one \`Server\`. Port parsing has tests in [main_test.go]\(main_test.go); executable startup scenarios are not yet verified.
+\- **Startup — Kostis:** [main.go](main.go) implements default port `8989`, digits-only ports `1–65535`, leading zeros, argument errors, stderr/exit handling, TCP listening on `:port`, and an accept loop. Connections run in goroutines sharing one `Server`. Port parsing has tests in [main_test.go](main_test.go). Manual executable verification confirmed default port `8989`, explicit port `2525`, excess-argument handling, invalid-port handling, and controlled listener bind failure. Full client-to-chat startup cannot yet complete because application session integration is still pending.
 
 \- **\*\*Admission — Kostis:\*\*** [server.go]\(internal/server/server.go) implements a mutex-protected limit of ten connections, including clients entering names; exact full-capacity rejection; welcome/logo/prompt; trimmed nonempty names; LF/CRLF support; duplicate names; rejection and retry above 64 bytes after trimming; and discard of unfinished input at EOF. Admission now uses the bounded-memory `readName` helper instead of `ReadString` for name input.
 
@@ -22,7 +22,7 @@ Update these sections as implementation and verification advance; record evidenc
 
 **## Currently in progress**
 
-- **Kostis admission work: verification/cleanup checkpoint.** The bounded-memory name-reading integration is complete and verified by the current server tests and full race suite. Remaining Kostis work is outside this checkpoint, including executable startup verification and later application integration/bonus work.
+- **Required integration checkpoint.** Kostis's independent startup and admission implementation is complete through the session handoff boundary. Startup/CLI verification has been performed. The next required checkpoint is application integration with Aris's room and Spyros's real session starter. Aris's current chat work is already contained in `main`; no real session runtime is currently available in the repository, so full application integration remains blocked.
 
 **## Progress made in this session**
 
@@ -60,13 +60,11 @@ Traced why consumed-byte counting and retained storage are separate, why trailin
 
 \- Generated long-stream tests passed. \`BenchmarkReadNameLongInput\` measured 64, 65,536, and 1,048,576 repetitions for ASCII names, malformed-byte names, and surrounding Unicode whitespace. Allocations stayed about 4.4–4.5 KB per operation across sizes, including reader/fixture setup. This is empirical regression evidence, not a universal bound or a timing threshold.
 
-\- \`HandleConnection\` still calls \`ReadString\`; admission therefore retains its original unbounded-line allocation gap. The helper has not yet changed connection behavior.
-
 **## Exact next checkpoint**
 
-Continue the mentor workflow in [AGENTS.md]\(AGENTS.md): let the student implement and review one small step at a time.
+The next required development checkpoint is application integration with Aris's room and Spyros's real session runtime. Do not implement Spyros's owned session runtime as part of Kostis's scope. Once the real session starter is available, initialize the application through `NewServer` with the real room and starter, then run the integrated multi-client and LAN audit scenarios.
 
-The bounded-memory admission integration is complete. Do not repeat the `readName` integration task unless a regression is found. Before moving into another implementation area, choose the next task from Kostis's remaining scope and consult only the documentation relevant to that task.
+Until that dependency is available, only documentation maintenance and verification that do not cross component ownership remain appropriate.
 
 **## Planned / not yet implemented or verified**
 
@@ -74,9 +72,9 @@ The bounded-memory admission integration is complete. Do not repeat the `readNam
 
 \- **\*\*Application integration:\*\*** create the real room and initialize the shared server with \`NewServer\` and the real starter. \`main\` currently uses \`server.Server{}\`, leaving its dependencies nil; a valid name reaches a nil starter call. End-to-end chat is therefore not complete.
 
-\- **\*\*Remaining verification:\*\*** compiled CLI stdout/stderr/exit behavior and bind failures; concurrent room join/submit and send-order scenarios; session failure/replay/queue tests; integrated multi-client chat and continued operation after departures; actual different-computer LAN checks; and recorded functional audit outcomes. Component tests do not establish these results.
+\- **Remaining verification:** integrated multi-client chat and continued operation after departures; session failure/replay/queue scenarios owned by the session component; actual different-computer LAN checks; and recorded final functional audit outcomes. Manual executable verification for default/custom ports, argument validation, invalid ports, and listener bind failure has been completed.
 
-\- **\*\*Documentation maintenance:\*\*** refresh stale README/docs statements that implementation or \`go.mod\` is absent. Existing instructions and audit plans are not evidence that their scenarios passed.
+\- **Documentation maintenance:** build/run/LAN instructions already exist in `README.md`, satisfying preparation for Kostis task 10. Some README/docs planning/status statements are stale and should later be refreshed to reflect that implementation and `go.mod` now exist. Existing LAN instructions are not evidence that actual multi-computer LAN verification has passed.
 
 \- **\*\*Bonuses:\*\*** extra flags and activity/file logging (Kostis), rename/multiple rooms (Aris), and the \`gocui\` client (Spyros). No implementations are present; behavior/API decisions remain to be agreed after required integration.
 
@@ -90,7 +88,7 @@ The bounded-memory admission integration is complete. Do not repeat the `readNam
 
 \| 2026-09-18 | \`go test -race ./... -count=1\` — earlier baseline | Previously recorded as passed for root, chat, and server, including loopback TCP admission tests. Session reported \`[no tests to run]\`. Local socket access was required. This predates the new helper and was not rerun in this session. |
 
-\| 2026-09-18 | Earlier mentoring session — source review | Confirmed the saved partial \`ReadSlice\`-based \`readName\` helper and that admission still calls \`ReadString\`. No tests added or run in that session. |
+\| 2026-09-18 | Earlier mentoring session — source review | At that checkpoint, the saved `readName` helper was still partial and `ReadSlice`-based, while admission still called `ReadString`. No tests were added or run in that session; both the helper and its admission integration were completed later. |
 
 \| 2026-09-18 | Full application / different-computer audit | Not verified; no completed audit evidence recorded. |
 
@@ -102,7 +100,7 @@ The bounded-memory admission integration is complete. Do not repeat the `readNam
 
 \| 2026-09-21 | Direct helper tests, after explicit test-writing request | \`go test ./internal/server -run 'Test(ReadName\\|IsNameSpace)' -count=1 -timeout=30s -coverprofile=/tmp/net-cat-name-coverage.out\` passed in 0.100s. Function coverage: \`readName\` 92.6%, \`isNameSpace\` 100%. |
 
-\| 2026-09-21 | Full race suite after new tests | \`go test -race ./... -count=1 -timeout=60s\` passed for root, chat, server, and session; session reported \`[no tests to run]\`. Admission still uses its original reading path. |
+\| 2026-09-21 | Full race suite after new tests | \`go test -race ./... -count=1 -timeout=60s\` passed for root, chat, server, and session; session reported \`[no tests to run]\`. At this checkpoint, admission still used its original reading path; `readName` was integrated later in the same session. |
 
 \| 2026-09-21 | Allocation benchmark after new tests | \`go test ./internal/server -run '^$' -bench '^BenchmarkReadNameLongInput$' -benchmem -benchtime=3x -count=1 -timeout=60s\` passed. ASCII: 4,466–4,472 B/op and 11 allocs/op; malformed bytes: 4,408 B/op and 8 allocs/op; surrounding whitespace: 4,498 B/op and 12 allocs/op across the three repetition counts. |
 
@@ -111,5 +109,13 @@ The bounded-memory admission integration is complete. Do not repeat the `readNam
 \| 2026-09-21 | `go test ./internal/server -count=1` — after integration | Passed: `ok net-cat/internal/server 0.102s`. The current server/admission and direct helper tests pass after integrating `readName`. |
 
 \| 2026-09-21 | `go test -race ./... -count=1 -timeout=60s` — after integration | Passed for root, chat, server, and session; session reported `[no tests to run]`. No race was detected in the exercised paths. |
+| 2026-09-21 | `go build -o TCPChat .` | Passed; the `TCPChat` executable was created successfully. |
+| 2026-09-21 | Manual default/custom-port startup | `./TCPChat` selected `8989` and `./TCPChat 2525` selected `2525`, each printing the expected listening line. A subsequent client connection exposed the known nil session dependency in application wiring; this is an integration blocker, not a port-selection failure. |
+| 2026-09-21 | Manual excess-argument check | `./TCPChat 2525 localhost` printed exactly `[USAGE]: ./TCPChat $port` and did not start a listener. |
+| 2026-09-21 | Manual invalid-port checks | `abc`, `0`, `-1`, and `65536` each produced the invalid-port explanation followed by the usage line. |
+| 2026-09-21 | Manual listener bind-failure check | With port `2525` occupied by another process, `./TCPChat 2525` exited cleanly with `bind: address already in use`; no panic occurred. |
+| 2026-09-21 | Integration blocker confirmed | `main.go` currently constructs `server.Server{}` without real dependencies. A client reaching session handoff therefore encounters a nil starter. `internal/session/session.go` currently provides the shared `Starter` contract but no real session runtime implementation. |
+| 2026-09-21 | Merge verification | Commit `336d3d3` (`feat: add bounded-memory name reading`) was fast-forward merged into `main`. `go test -race ./... -count=1 -timeout=60s` passed on the merged `main`. |
+| 2026-09-21 | Push to shared main | `main` was pushed from `6cc5344` to `336d3d3`. The remote emitted a hook-side revision error, but Git confirmed `6cc5344..336d3d3 main -> main`; subsequent `git status` confirmed local `main` was up to date with `origin/main` and the working tree was clean. |
 
 Scope follows [Kostis's tasks]\(tasks/kostis-tasks.md), [Aris's tasks]\(tasks/aris-tasks.md), [Spyros's tasks]\(tasks/spyros-tasks.md), [architecture]\(docs/architecture.md), and [agreed policies]\(docs/notes.md). Passing race checks covers exercised paths only.
