@@ -75,12 +75,13 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	}
 	reader := bufio.NewReader(conn)
 	var name string
+	tooLong := false
 	for {
-		name, err = reader.ReadString('\n')
+		name, tooLong, err = readName(reader)
 		if err != nil {
 			return
 		}
-		name = strings.TrimSpace(name)
+
 		if name == "" {
 			_, err = fmt.Fprintln(conn, "Invalid name. Please enter a non-empty name.")
 
@@ -95,7 +96,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 			}
 			continue
 		}
-		if len(name) > 64 {
+		if tooLong {
 			_, err = fmt.Fprintln(conn, "Name too long. Maximum is 64 bytes.")
 
 			if err != nil {
@@ -126,30 +127,57 @@ func NewServer(starter session.Starter, room session.Room) *Server {
 func readName(r *bufio.Reader) (string, bool, error) {
 	var name []byte
 	tooLong := false
+	byteCount := 0
 	for {
-		chunk, err := r.ReadSlice('\n')
 
-		for _, b := range chunk {
-			if b == '\n' {
-				break
-			}
-			if len(name) == 0 && b == ' ' {
-				continue
-			}
-			if len(name) < 64 {
-				name = append(name, b)
-			} else if b != ' ' {
-				tooLong = true
-			}
-		}
-		if err == nil {
-			break
-		}
+		ch, size, err := r.ReadRune()
 
-		if err != bufio.ErrBufferFull {
+		if err != nil {
 			return "", false, err
 		}
 
+		if ch == '\n' {
+			break
+		}
+		isSpace := isNameSpace(ch)
+		if len(name) == 0 && isSpace {
+			continue
+		}
+
+		if byteCount <= 64 {
+			byteCount += size
+		}
+
+		if byteCount > 64 && !isSpace {
+			tooLong = true
+		}
+
+		if byteCount <= 64 {
+			if ch == '\uFFFD' && size == 1 {
+				err = r.UnreadRune()
+				if err != nil {
+					return "", false, err
+				}
+
+				b, err := r.ReadByte()
+				if err != nil {
+					return "", false, err
+				}
+				name = append(name, b)
+			} else {
+				name = append(name, string(ch)...)
+			}
+		}
+
 	}
+
 	return strings.TrimSpace(string(name)), tooLong, nil
+}
+
+func isNameSpace(ch rune) bool {
+	trimmed := strings.TrimSpace(string(ch))
+	if trimmed == "" {
+		return true
+	}
+	return false
 }
