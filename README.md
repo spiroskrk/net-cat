@@ -27,7 +27,7 @@ Shared interfaces are defined so that each component can be developed and tested
 
 Prerequisites: Go and a Netcat client (`nc`). The project currently declares Go `1.26.2` in `go.mod`.
 
-Build the executable from the project root:
+Open a terminal and change into the project's `net-cat` directory, where `go.mod` is located. Build the executable there:
 
 ```bash
 go build -o TCPChat .
@@ -50,6 +50,8 @@ Expected startup output for that example:
 ```txt
 Listening on the port :2525
 ```
+
+Keep this terminal open while the server runs. Use separate terminals for chat clients; messages are typed in the client terminals.
 
 During development, the corresponding `go run` forms are:
 
@@ -85,11 +87,19 @@ Valid custom ports contain digits only and must resolve to a value from `1` thro
 
 ## Connect and chat
 
-With the server running on port `2525`, a client on the same computer can connect with:
+Leave the server running in the first terminal. Open a **second terminal** for your first chat client. If you started the server with `./TCPChat`, connect to its default port:
+
+```bash
+nc localhost 8989
+```
+
+If you started it with `./TCPChat 2525`, use that port instead:
 
 ```bash
 nc localhost 2525
 ```
+
+To chat with another local client, open a third terminal and run the same `nc` command. Each client needs its own terminal and name entry.
 
 For another computer on the same LAN, use the server computer's actual LAN IP instead of `localhost`. For example, if the server computer's LAN IP is `192.168.1.10`:
 
@@ -101,7 +111,7 @@ The server listens on `:port`, allowing network-accessible TCP connections when 
 
 Actual multi-computer LAN operation is **Not run**: a second computer was not available for the current verification. Localhost checks do not complete audit F10.
 
-During admission, enter a name at:
+After connecting, the server displays its welcome message and name prompt. Type your name and press **Enter** at:
 
 ```txt
 [ENTER YOUR NAME]:
@@ -117,6 +127,8 @@ and prompts for the name again.
 
 Names are limited to **64 bytes after trimming**. Oversized names are rejected and the client remains connected so another name can be entered.
 
+Once your name is accepted, type a message, such as `Hello everyone!`, and press **Enter** to send it. Repeat for each message. New clients receive earlier chat messages before joining the live conversation.
+
 A message sent by a client is delivered to all chat clients, including the sender, in this form:
 
 ```txt
@@ -126,6 +138,12 @@ A message sent by a client is delivered to all chat clients, including the sende
 Actual timestamps depend on when the message is sent.
 
 Plain `nc` may show both locally typed text and the server's formatted response, and incoming output can visually interrupt typing. The planned bonus UI is intended to preserve unfinished input separately from the chat display.
+
+## Leave the chat and stop the server
+
+- **Leave as a client:** press **Ctrl+C** in that client's `nc` terminal. This closes that connection; the server and other clients continue running. Remaining clients receive a departure announcement once a named client leaves.
+- **Stop the server:** press **Ctrl+C** in the terminal running `./TCPChat` or `go run .`. This stops the server and disconnects all connected clients.
+- **Start again:** run the server command again, then reconnect each client with `nc` and enter a name. Chat history is kept only in memory, so restarting the server starts a fresh conversation.
 
 ## Current implementation status
 

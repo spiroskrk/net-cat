@@ -32,7 +32,7 @@ func (r *failureRoom) Leave(id chat.ClientID) error {
 	return r.leaveFn(id)
 }
 
-// This destination consumes events immediately; only the tested socket is slow.
+// Buffer enough events for this test so the observer never stalls room broadcasts.
 type failureObserver struct {
 	lines    chan string
 	failures chan error
@@ -58,6 +58,7 @@ func (o *failureObserver) Fail(err error) {
 
 func startFailureSession(t *testing.T, conn, client net.Conn, room Room) (*session, <-chan struct{}, <-chan struct{}) {
 	t.Helper()
+	// A second callback must remain observable instead of blocking cleanup.
 	released := make(chan struct{}, 2)
 	s := &session{
 		conn:    conn,
@@ -79,6 +80,7 @@ func startFailureSession(t *testing.T, conn, client net.Conn, room Room) (*sessi
 	})
 	go func() {
 		s.run("Slow", bufio.NewReader(conn))
+		// run waits for its writer and cleanup callbacks before this signal.
 		close(stopped)
 	}()
 	return s, stopped, released
@@ -231,6 +233,7 @@ func TestSessionRegistrationFailure(t *testing.T) {
 						if err := output.Begin([]string{"old message\n"}); err != nil {
 							return 0, err
 						}
+						// Reject only after replay reaches the unread socket.
 						select {
 						case <-conn.writeStarted:
 						case <-time.After(2 * time.Second):
@@ -262,6 +265,7 @@ func TestSessionFailureBeforeJoinReturnsID(t *testing.T) {
 			if err := output.Begin(nil); err != nil {
 				return 0, err
 			}
+			// Force failure before run can learn which registered ID to remove.
 			output.Fail(failed)
 			return 7, nil
 		},

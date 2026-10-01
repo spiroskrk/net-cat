@@ -16,8 +16,8 @@ type timeoutDeadlineRecord struct {
 	observed  time.Time
 }
 
-// shortenedWriteLimit changes only the test transport's clock. The requested
-// production deadline is recorded before a real pipe deadline is installed.
+// Record the production deadline before optionally shortening the pipe's actual
+// write deadline, so timeout tests stay fast without weakening the policy check.
 type timeoutObservedConn struct {
 	net.Conn
 	mu                  sync.Mutex
@@ -184,6 +184,7 @@ func timeoutStartSession(t *testing.T, conn net.Conn, name string, room Room) *t
 	})
 	go func() {
 		running.s.run(name, bufio.NewReader(conn))
+		// run waits for its writer; done also makes the release count safe to read.
 		close(running.done)
 	}()
 	return running

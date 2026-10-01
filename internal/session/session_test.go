@@ -167,6 +167,7 @@ func TestFailedSessionRejectsOutput(t *testing.T) {
 	}
 }
 
+// Signal entry into socket output so tests can fail a session during replay.
 type replayBlockingConn struct {
 	net.Conn
 	writeStarted chan struct{}
@@ -178,7 +179,7 @@ func (c *replayBlockingConn) Write(p []byte) (int, error) {
 	return c.Conn.Write(p)
 }
 
-// This regression must unblock through Close, never a write timeout.
+// Disable deadlines so a missing Close cannot be hidden by an eventual timeout.
 func (c *replayBlockingConn) SetWriteDeadline(time.Time) error {
 	return nil
 }

@@ -11,6 +11,7 @@ import (
 	"time"
 )
 
+// parsePort accepts an optional digits-only TCP port, defaulting to 8989.
 func parsePort(p []string) (int, error) {
 	if len(p) == 0 {
 		return 8989, nil
@@ -29,6 +30,7 @@ func parsePort(p []string) (int, error) {
 		port = port * 10
 		dig := int(d - '0')
 		port += dig
+		// Reject large prefixes before another multiplication can overflow int.
 		if port > 65535 {
 			return 0, errors.New("Invalid port. Please use a port number between 1 and 65535.\n[USAGE]: ./TCPChat $port")
 		}
@@ -45,6 +47,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+	// An empty host allows connections beyond loopback when networking permits.
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -55,6 +58,7 @@ func main() {
 
 	fmt.Printf("Listening on the port :%d\n", port)
 
+	// Every connection shares this room and the server's admission counter.
 	room := chat.NewRoom(time.Now)
 	srv := server.NewServer(session.Start, room)
 

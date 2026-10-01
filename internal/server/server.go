@@ -9,6 +9,8 @@ import (
 	"sync"
 )
 
+// Server coordinates admission across all accepted connections.
+// Share one instance so clients entering names count toward the global limit.
 type Server struct {
 	activeConnections int
 	mu                sync.Mutex
@@ -16,7 +18,10 @@ type Server struct {
 	room              session.Room
 }
 
+// HandleConnection reserves capacity, validates a name, and starts a session.
+// Admission owns closure and release until the starter accepts the handoff.
 func (s *Server) HandleConnection(conn net.Conn) {
+	// Reserve before name entry, and release the lock before any network I/O.
 	s.mu.Lock()
 
 	if s.activeConnections >= 10 {
@@ -31,6 +36,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	s.activeConnections++
 	s.mu.Unlock()
 
+	// Admission and session cleanup may both call release; return the slot once.
 	var once sync.Once
 	release := func() {
 		once.Do(func() {
@@ -73,6 +79,7 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
+	// Pass this same reader to the session to preserve bytes sent with the name.
 	reader := bufio.NewReader(conn)
 	var name string
 	tooLong := false
@@ -119,11 +126,16 @@ func (s *Server) HandleConnection(conn net.Conn) {
 	handedOff = true
 }
 
+// NewServer connects admission to a session starter and a shared room.
+// Production supplies session.Start; independent tests can inject a fake starter.
 func NewServer(starter session.Starter, room session.Room) *Server {
 	srv := Server{sessionStart: starter, room: room}
 	return &srv
 }
 
+// readName consumes one LF-terminated name with bounded retained storage.
+// It returns the trimmed name and an oversize flag; reject the prefix when true.
+// An unfinished name at EOF is discarded.
 func readName(r *bufio.Reader) (string, bool, error) {
 	var name []byte
 	tooLong := false
@@ -140,19 +152,24 @@ func readName(r *bufio.Reader) (string, bool, error) {
 			break
 		}
 		isSpace := isNameSpace(ch)
+		// Leading whitespace does not count toward the trimmed name's byte limit.
 		if len(name) == 0 && isSpace {
 			continue
 		}
 
+		// Stop counting after crossing the limit, but keep draining to the newline.
 		if byteCount <= 64 {
 			byteCount += size
 		}
 
+		// Trailing whitespace is trimmed; only more non-space content proves oversize.
 		if byteCount > 64 && !isSpace {
 			tooLong = true
 		}
 
 		if byteCount <= 64 {
+			// ReadRune replaces an invalid UTF-8 byte with U+FFFD of width one.
+			// Reread that byte so accepted names preserve the original input.
 			if ch == '\uFFFD' && size == 1 {
 				err = r.UnreadRune()
 				if err != nil {
@@ -174,6 +191,7 @@ func readName(r *bufio.Reader) (string, bool, error) {
 	return strings.TrimSpace(string(name)), tooLong, nil
 }
 
+// isNameSpace follows the same whitespace rules as the final name trimming.
 func isNameSpace(ch rune) bool {
 	trimmed := strings.TrimSpace(string(ch))
 	if trimmed == "" {
