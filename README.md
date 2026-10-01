@@ -6,11 +6,11 @@ A Go TCP group chat for up to **10 simultaneous connections**, designed for use 
 
 ## Team and task plans
 
-| Developer | Required work | Bonus work | Task plan |
-| --- | --- | --- | --- |
-| Kostis | Server startup, ports, welcome/name entry, capacity and admission | Additional flags, activity logging and log files | [Kostis's tasks](tasks/kostis-tasks.md) |
-| Aris | Membership, broadcasts, history, announcements and synchronization | Renaming and separate chat rooms | [Aris's tasks](tasks/aris-tasks.md) |
-| Spyros | Client sessions, ordered delivery, disconnect handling and cleanup | Terminal client using `gocui` | [Spyros's tasks](tasks/spyros-tasks.md) |
+| Developer | Required work | Task plan |
+| --- | --- | --- |
+| Kostis | Server startup, ports, welcome/name entry, capacity and admission | [Kostis's tasks](tasks/kostis-tasks.md) |
+| Aris | Membership, broadcasts, history, announcements and synchronization | [Aris's tasks](tasks/aris-tasks.md) |
+| Spyros | Client sessions, ordered delivery, disconnect handling and cleanup | [Spyros's tasks](tasks/spyros-tasks.md) |
 
 Shared interfaces are defined so that each component can be developed and tested independently with fake dependencies. Aris reviews Kostis, Spyros reviews Aris, and Kostis reviews Spyros. All three participate in final integration, LAN testing, and the audit walkthrough.
 
@@ -137,7 +137,7 @@ A message sent by a client is delivered to all chat clients, including the sende
 
 Actual timestamps depend on when the message is sent.
 
-Plain `nc` may show both locally typed text and the server's formatted response, and incoming output can visually interrupt typing. The planned bonus UI is intended to preserve unfinished input separately from the chat display.
+Plain `nc` may show both locally typed text and the server's formatted response, and incoming output can visually interrupt typing.
 
 ## Leave the chat and stop the server
 
@@ -233,20 +233,6 @@ Each task plan contains component-specific tests and failure cases. The supplied
 
 Evaluator compatibility with Go `1.26.2` and the use of standard-library test helpers should still be confirmed if required by the evaluation environment.
 
-## Planned bonuses
-
-Bonus work should begin only after the required functionality is integrated and verified.
-
-Planned bonuses include:
-
-- name changes with announcements;
-- separate chat rooms;
-- additional Netcat-style flags;
-- activity logging and log-file persistence;
-- a terminal UI using `github.com/jroimartin/gocui`.
-
-The UI should preserve unfinished input and display each server-delivered message once. Plain `nc` and UI clients should work with the same server. UI startup commands can be documented once its interface is agreed and implemented.
-
 ## Documentation
 
 Project documentation currently includes:
@@ -269,9 +255,7 @@ The current implementation status and observed local verification are recorded a
 
 Use only the subject's permitted implementation packages:
 
-`io`, `log`, `os`, `fmt`, `net`, `sync`, `time`, `bufio`, `errors`, `strings`, and `reflect`
-
-with the explicit `gocui` exception for the terminal UI bonus.
+`io`, `log`, `os`, `fmt`, `net`, `sync`, `time`, `bufio`, `errors`, `strings`, and `reflect`.
 
 Keep the root entry point small and package application logic under `internal/`.
 
