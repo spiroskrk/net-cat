@@ -2,7 +2,7 @@
 
 A Go TCP group chat for up to **10 simultaneous connections**, designed for use from separate terminals on one computer or different computers on the same local network.
 
-**Status:** server startup, port handling, connection admission, capacity control, welcome/name entry, and the shared session handoff boundary are implemented. The room component is also implemented independently. Full end-to-end chat is not yet complete because the real session runtime and final application integration are still pending. The commands below describe how to build, run, and verify the current implementation.
+**Status:** startup, admission, room behavior, and the real session runtime are integrated. The full race suite and scripted multi-client TCP checks on localhost passed on 2026-10-01. Different-computer LAN testing and the final manual audit remain **Not run**. The commands below describe how to build, run, and verify the current implementation.
 
 ## Team and task plans
 
@@ -99,7 +99,7 @@ nc 192.168.1.10 2525
 
 The server listens on `:port`, allowing network-accessible TCP connections when the host network configuration permits them. The server computer's firewall must allow incoming TCP connections on the selected port. Use the same port in the server and client commands.
 
-Actual multi-computer LAN operation must still be verified during final integration testing.
+Actual multi-computer LAN operation is **Not run**: a second computer was not available for the current verification. Localhost checks do not complete audit F10.
 
 During admission, enter a name at:
 
@@ -117,7 +117,7 @@ and prompts for the name again.
 
 Names are limited to **64 bytes after trimming**. Oversized names are rejected and the client remains connected so another name can be entered.
 
-Once full session integration is complete, a message sent by a client is expected to be delivered to all chat clients, including the sender, in this form:
+A message sent by a client is delivered to all chat clients, including the sender, in this form:
 
 ```txt
 [2026-09-14 15:30:05][Aris]:Hello everyone!
@@ -144,19 +144,16 @@ Plain `nc` may show both locally typed text and the server's formatted response,
 - Preservation of the existing buffered reader across the session handoff boundary.
 - Capacity release and connection cleanup for admission failures and disconnects before successful handoff.
 - Shared room/session handoff contracts.
-- Room membership, message submission, history, join/leave behavior, and related synchronization as an independently tested component.
+- Room membership, message submission, history, join/leave behavior, and related synchronization.
+- A single shared room and the real `session.Start` injected through `NewServer` in the root application.
+- Session input framing, the 4,096-byte message limit, and recovery after oversized messages.
+- Ordered history and live output, per-message write deadlines, and session cleanup.
 
-### Pending required integration
+### Remaining required verification
 
-- Real session runtime.
-- Wiring the real room and session starter into the application through `NewServer`.
-- End-to-end multi-client chat verification.
-- Continued operation after client departures.
-- Session failure, replay, and queue scenarios.
-- Actual different-computer LAN verification.
-- Final functional audit.
-
-The root application currently cannot complete a valid client handoff because the real session runtime has not yet been integrated.
+- Different-computer LAN testing (F10): **Not run**, because no second computer was available.
+- The manual `nc` audit walkthrough and final functional verdict.
+- Evaluator toolchain compatibility and acceptance of the agreed test-only imports.
 
 ## Tests and verification
 
@@ -172,21 +169,36 @@ The current server/admission tests include coverage for name handling, capacity,
 
 The room component has independent tests for membership, message submission, history/live sequencing, filtering, departure behavior, and destination failures.
 
-The full race suite has passed for the currently exercised paths. A passing race detector only covers code paths exercised by the tests.
+Session tests cover normal replay/input/disconnect behavior, oversized-message recovery, rejection of a second history handoff after the first batch is consumed, rejection of output after failure, and concurrent failure during blocked history replay with one departure and one capacity release. Additional failure and deadline checks are in [failure_test.go](internal/session/failure_test.go) and [timeout_test.go](internal/session/timeout_test.go).
 
-Manual executable verification has also been performed for:
+### Local verification — 2026-10-01
 
-- default port `8989`;
-- custom port `2525`;
-- excess arguments;
-- invalid ports including `abc`, `0`, `-1`, and `65536`;
-- listener bind failure when the requested port is already occupied.
+These results apply to the working tree based on `ea4d1e6`, including the local session fixes, regression tests, and application wiring.
 
-Full client-to-chat behavior is not yet considered verified because application session integration remains pending.
+`go test -race ./... -count=1 -timeout=60s` passed for the root, chat, server, and session packages. `go vet ./...` also passed. Focused session checks additionally verified:
+
+- A 257-line history batch does not consume the 256 live-event slots. Once those slots fill during blocked replay, another event triggers cleanup of the affected session; its membership is removed, its capacity is released once, and a healthy participant can continue.
+- Registration errors before history delivery and during blocked replay close the connection and release capacity once without a false departure.
+- Failure before `Join` returns its assigned ID still results in exactly one departure using that ID.
+- Every tested history/live write receives a renewed ten-second deadline. An actual socket write timeout cleans up only the affected session, while another real session can still exchange messages.
+
+The timeout test records the requested production deadline, then shortens only the test transport's deadline to 30 milliseconds. It exercises a real `net.Pipe` timeout without waiting ten seconds. The healthy-session checks also confirm that session code does not install read or combined read/write deadlines in the exercised paths.
+
+A temporary race-enabled build of the root executable also passed scripted checks using real TCP sockets on localhost:
+
+- Default port `8989`, custom port `2525`, and leading-zero port selection.
+- Exact stderr, exit status 1, and no startup output for excess arguments and invalid ports; controlled failure when a port is occupied.
+- Name validation/retry, name trimming, and preservation of a message sent together with the name.
+- Three-client delivery including the sender, identical message metadata, and ordered history before the newcomer's join notice.
+- Empty-message filtering, preservation of message spaces, LF/CRLF framing, split and batched input, the 4,096-byte boundary, and recovery after oversized messages.
+- Three- and four-client departure scenarios, discarded unfinished EOF input, and independent sessions with duplicate names.
+- Ten named or unnamed connections, exact eleventh-client rejection and closure, slot reuse, and continued chat through repeated disconnect/reconnect cycles.
+
+No race reports or server errors occurred during these executable checks. Passing tests cover only the exercised paths; they do not establish different-computer connectivity or a final audit verdict.
 
 ## Final integration and audit checks
 
-After the real session runtime is integrated:
+Use this checklist for the remaining manual audit walkthrough. The local scripted checks above cover many of these behaviors; different-computer testing and the final audit are still pending:
 
 - Connect three clients and verify welcome/name entry and join notifications.
 - Send from the second client and verify all three receive the same formatted message.
@@ -221,20 +233,19 @@ The UI should preserve unfinished input and display each server-delivered messag
 
 Project documentation currently includes:
 
-- `AGENTS.md`
 - `docs/prd.md`
 - `docs/architecture.md`
 - `docs/workflow.md`
 - `docs/notes.md`
 - `docs/golden_tests.md`
+- `docs/audit_test.md`
 - `tasks/kostis-tasks.md`
 - `tasks/aris-tasks.md`
 - `tasks/spyros-tasks.md`
-- `progress_log_kostis.md`
 
 Shared API signatures and ownership are documented in [architecture.md](docs/architecture.md). Agreed capacity, input handling, history, delivery, and prompt policies are documented in [notes.md](docs/notes.md).
 
-The detailed current status of Kostis's work and recorded verification evidence are maintained in [progress_log_kostis.md](progress_log_kostis.md).
+The current implementation status and observed local verification are recorded above. The manual audit checklist and its results are maintained in [audit_test.md](docs/audit_test.md).
 
 ## Implementation constraints
 

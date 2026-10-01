@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net-cat/internal/chat"
 	"net-cat/internal/server"
+	"net-cat/internal/session"
 	"os"
+	"time"
 )
 
 func parsePort(p []string) (int, error) {
@@ -52,7 +55,9 @@ func main() {
 
 	fmt.Printf("Listening on the port :%d\n", port)
 
-	srv := server.Server{}
+	room := chat.NewRoom(time.Now)
+	srv := server.NewServer(session.Start, room)
+
 	for {
 		conn, err := listener.Accept()
 

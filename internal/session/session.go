@@ -38,9 +38,10 @@ type session struct {
 	history chan []string // begin hands the replay batch to the writer, once
 	queue   chan string   // live events
 
-	done      chan struct{}
-	closeOnce sync.Once
-	err       error
+	done        chan struct{}
+	closeOnce   sync.Once
+	historyOnce sync.Once
+	err         error
 }
 
 func Start(conn net.Conn, name string, reader *bufio.Reader, release func(), room Room) error {
@@ -58,14 +59,29 @@ func Start(conn net.Conn, name string, reader *bufio.Reader, release func(), roo
 
 func (s *session) Begin(history []string) error {
 	select {
-	case s.history <- history:
-		return nil
+	case <-s.done:
+		return errors.New("session closed")
 	default:
-		return errors.New("session: history already delivered")
 	}
+	err := errors.New("session: history already delivered")
+
+	s.historyOnce.Do(func() {
+		select {
+		case s.history <- history:
+			err = nil
+		default:
+		}
+	})
+
+	return err
 }
 
 func (s *session) Enqueue(text string) error {
+	select {
+	case <-s.done:
+		return errors.New("session closed")
+	default:
+	}
 	select {
 	case s.queue <- text:
 		return nil
@@ -78,6 +94,7 @@ func (s *session) Fail(err error) {
 	s.closeOnce.Do(func() {
 		s.err = err
 		close(s.done)
+		s.conn.Close()
 	})
 }
 
@@ -183,5 +200,5 @@ func readLine(r *bufio.Reader) (string, bool, error) {
 		buf = buf[:n-1] // CRLF: drop the '\r'
 		n--
 	}
-	return string(buf), false, nil
+	return string(buf), n > maxMessage, nil
 }
