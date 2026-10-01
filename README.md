@@ -2,7 +2,7 @@
 
 A Go TCP group chat for up to **10 simultaneous connections**, designed for use from separate terminals on one computer or different computers on the same local network.
 
-**Status:** startup, admission, room behavior, and the real session runtime are integrated. The full race suite and scripted multi-client TCP checks on localhost passed on 2026-10-01. Different-computer LAN testing and the final manual audit remain **Not run**. The commands below describe how to build, run, and verify the current implementation.
+**Status:** startup, admission, room behavior, and the real session runtime are integrated. The full race suite, scripted TCP checks, real `nc` terminal checks, and source review passed locally on 2026-10-01. Different-computer LAN testing and the final audit verdict remain pending. Current results and limits are recorded in [the audit checklist](docs/audit_test.md). The commands below describe how to build, run, and verify the current implementation.
 
 ## Team and task plans
 
@@ -142,7 +142,7 @@ Plain `nc` may show both locally typed text and the server's formatted response,
 ## Leave the chat and stop the server
 
 - **Leave as a client:** press **Ctrl+C** in that client's `nc` terminal. This closes that connection; the server and other clients continue running. Remaining clients receive a departure announcement once a named client leaves.
-- **Stop the server:** press **Ctrl+C** in the terminal running `./TCPChat` or `go run .`. This stops the server and disconnects all connected clients.
+- **Stop the server:** press **Ctrl+C** in the terminal running `./TCPChat` or `go run .`. This stops the server and disconnects all connected clients. If an `nc` terminal remains open afterward, press **Ctrl+C** there to return to the shell.
 - **Start again:** run the server command again, then reconnect each client with `nc` and enter a name. Chat history is kept only in memory, so restarting the server starts a fresh conversation.
 
 ## Current implementation status
@@ -170,7 +170,8 @@ Plain `nc` may show both locally typed text and the server's formatted response,
 ### Remaining required verification
 
 - Different-computer LAN testing (F10): **Not run**, because no second computer was available.
-- The manual `nc` audit walkthrough and final functional verdict.
+- Final audit review and functional verdict. The scripted local `nc` walkthrough passed; it does not establish different-computer connectivity.
+- A fresh rerun of the exact default-port (`8989`) and custom-port (`2525`) startup cases once those ports are free. Both passed earlier local checks; existing servers occupied them during the latest run.
 - Evaluator toolchain compatibility and acceptance of the agreed test-only imports.
 
 ## Tests and verification
@@ -214,9 +215,17 @@ A temporary race-enabled build of the root executable also passed scripted check
 
 No race reports or server errors occurred during these executable checks. Passing tests cover only the exercised paths; they do not establish different-computer connectivity or a final audit verdict.
 
+### Audit follow-up at `ad2d51a` — 2026-10-01
+
+A fresh race-enabled build, the full race suite, `go vet`, and formatting checks passed. Scripted TCP checks again passed admission, messaging, history, disconnect recovery, the ten-connection limit, and slot reuse, including unnamed clients.
+
+Actual `nc` clients in separate pseudo-terminals also passed the local chat walkthrough: exact welcome/logo/prompt, history replay, identical three-client delivery including the sender, and continued chat after Ctrl+C departures from three- and four-client groups. Local terminal echo was disabled when verifying server output. Source review confirmed goroutines, synchronization, cleanup ownership, and permitted production imports.
+
+The exact startup checks on `8989` and `2525` were skipped this time because existing servers occupied both ports; the chat checks used available ports. Different-computer testing and evaluator support for Go `1.26.2` and the extra test-only imports remain pending. See [the audit checklist](docs/audit_test.md) for individual results.
+
 ## Final integration and audit checks
 
-Use this checklist for the remaining manual audit walkthrough. The local scripted checks above cover many of these behaviors; different-computer testing and the final audit are still pending:
+Use this checklist when demonstrating the program for the final audit. The local TCP and `nc` checks above exercised the local chat behaviors; different-computer testing and the final audit verdict are still pending:
 
 - Connect three clients and verify welcome/name entry and join notifications.
 - Send from the second client and verify all three receive the same formatted message.
