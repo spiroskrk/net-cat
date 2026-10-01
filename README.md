@@ -2,7 +2,7 @@
 
 A Go TCP group chat for up to **10 simultaneous connections**, designed for use from separate terminals on one computer or different computers on the same local network.
 
-**Status:** startup, admission, room behavior, and the real session runtime are integrated. The full race suite, scripted TCP checks, real `nc` terminal checks, and source review passed locally on 2026-10-01. Different-computer LAN testing and the final audit verdict remain pending. Current results and limits are recorded in [the audit checklist](docs/audit_test.md). The commands below describe how to build, run, and verify the current implementation.
+**Status:** startup, admission, room behavior, and the real session runtime are integrated. The full race suite, scripted TCP checks, real `nc` terminal checks, source review, and same-PC network simulations passed on 2026-10-01. Different-computer LAN testing and the final audit verdict remain pending. Current results and limits are recorded in [the audit checklist](docs/audit_test.md). The commands below describe how to build, run, and verify the current implementation.
 
 ## Team and task plans
 
@@ -171,7 +171,6 @@ Plain `nc` may show both locally typed text and the server's formatted response,
 
 - Different-computer LAN testing (F10): **Not run**, because no second computer was available.
 - Final audit review and functional verdict. The scripted local `nc` walkthrough passed; it does not establish different-computer connectivity.
-- A fresh rerun of the exact default-port (`8989`) and custom-port (`2525`) startup cases once those ports are free. Both passed earlier local checks; existing servers occupied them during the latest run.
 - Evaluator toolchain compatibility and acceptance of the agreed test-only imports.
 
 ## Tests and verification
@@ -222,6 +221,14 @@ A fresh race-enabled build, the full race suite, `go vet`, and formatting checks
 Actual `nc` clients in separate pseudo-terminals also passed the local chat walkthrough: exact welcome/logo/prompt, history replay, identical three-client delivery including the sender, and continued chat after Ctrl+C departures from three- and four-client groups. Local terminal echo was disabled when verifying server output. Source review confirmed goroutines, synchronization, cleanup ownership, and permitted production imports.
 
 The exact startup checks on `8989` and `2525` were skipped this time because existing servers occupied both ports; the chat checks used available ports. Different-computer testing and evaluator support for Go `1.26.2` and the extra test-only imports remain pending. See [the audit checklist](docs/audit_test.md) for individual results.
+
+### Same-PC network simulation at `6f95122` — 2026-10-01
+
+A fresh race-enabled server and three real `nc` clients ran in separate Linux network namespaces, each with its own IP address on a temporary virtual network. Default-port `8989` and custom-port `2525` startup both passed there, completing the previously skipped reruns without stopping the existing host servers. History, sender-inclusive broadcasts, departure notices, continued chat, and reconnection all passed.
+
+Two native Windows TCP clients also connected to a temporary WSL server using its network IP. Both clients exchanged identical server-delivered messages and received history in order. After one disconnected, the other continued chatting. No race diagnostics appeared in either scenario. All test processes and virtual networks were cleaned up; host networking and firewall settings were not changed.
+
+These checks provide additional networking evidence on one physical computer. **F10 remains pending** because it asks for clients on different computers; a simulation can replace that only if the evaluator accepts it. Detailed results are in [the audit checklist](docs/audit_test.md).
 
 ## Final integration and audit checks
 

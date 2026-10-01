@@ -8,7 +8,7 @@ The [architecture](architecture.md) and [agreed policies](notes.md#agreed-requir
 
 Source: the audit checklist supplied by the user in this conversation, followed by “this is the audit test. so take it in mind also.” The functional and bonus questions below preserve that supplied text; stable IDs and formatting have been added for reference.
 
-**Overall status: Partially verified locally.** The local build, race suite, scripted TCP and real `nc` terminal checks, and source review passed at commit `ad2d51a` on 2026-10-01. Different-computer testing, evaluator compatibility, and the final audit verdict remain pending. Individual statuses below distinguish observed results from checks that were not run. No official automated audit comparator was supplied.
+**Overall status: Partially verified locally.** The local build, race suite, scripted TCP and real `nc` terminal checks, and source review passed at commit `ad2d51a` on 2026-10-01. Same-PC virtual-network and Windows-to-WSL checks also passed at `6f95122`. Different-computer testing, evaluator compatibility, and the final audit verdict remain pending. Individual statuses below distinguish observed results from checks that were not run. No official automated audit comparator was supplied.
 
 Use [golden_tests.md](golden_tests.md) for fixtures, package-test coverage, manual procedures, and traceability. The [PRD](prd.md), [architecture](architecture.md), [workflow](workflow.md), and [notes](notes.md) describe the implementation plan.
 
@@ -55,6 +55,28 @@ Checked commit: `ad2d51a`. Installed toolchain: Go `1.26.2`, `linux/amd64`.
 - Source review confirmed goroutines, mutexes/channels, connection handoff, and cleanup ownership. All production standard-library imports match the permitted list. Tests additionally import `testing` and `testing/iotest`, which the team permits; evaluator acceptance remains unconfirmed.
 - No second computer was available. These observations do not establish LAN connectivity, complete a human manual walkthrough, or constitute the final evaluator verdict.
 
+## Same-PC network simulation — 2026-10-01
+
+Checked commit: `6f95122`, using fresh race-enabled builds. These checks supplement the local audit; they do not satisfy F10 without evaluator acceptance of a substitute for different computers.
+
+The Linux simulation created a temporary virtual switch and four separate network namespaces:
+
+| Role | Address |
+| --- | --- |
+| Server | `192.0.2.10` |
+| Client A | `192.0.2.11` |
+| Client B | `192.0.2.12` |
+| Client C | `192.0.2.13` |
+
+Each endpoint had a distinct network namespace and network interface. The server observed all three client addresses connected simultaneously. A client's `localhost:8989` refused connections while the server's `192.0.2.10:8989` welcomed it, confirming that the test did not share loopback networking.
+
+- A fresh server started with no arguments listened on `8989`; a client in another namespace connected successfully. A fresh server started with `2525` listened on that exact port and accepted the three clients. This completed the startup reruns that were previously blocked by existing host listeners.
+- Real `nc` clients received the exact welcome/name prompt, replayed unchanged history before their own join notices, and received byte-identical broadcasts including the sender. A departure notified both survivors, who continued chatting; reconnecting restored the third client with history intact.
+- A separate native Windows PowerShell check opened two simultaneous TCP clients from `172.31.128.1` to a temporary WSL server at `172.31.132.156:38929`. Welcome/name entry, join notices, history order, identical broadcasts in both directions, departure notification, and continued chat after one client closed all passed.
+- Neither race-enabled server run produced race diagnostics. All simulation-owned servers and clients were stopped. The Linux namespace holders exited, removing the temporary virtual links. Host address and route snapshots were unchanged; no firewall or host network configuration was modified, and the pre-existing host servers were left running.
+
+The temporary `192.0.2.0/24` virtual network was removed, and the test WSL listener on port `38929` was stopped. The existing Windows and WSL host addresses were left unchanged. Both scenarios ran on one physical computer. Actual different-computer/LAN testing and the final evaluator verdict remain pending.
+
 ## Functional
 
 ### F01 — Default Port
@@ -63,7 +85,7 @@ Try running `./TCPChat`.
 
 Is the server listening for connections on the default port?
 
-**Status:** Not rerun in this session: an existing server occupied port `8989`. The earlier successful default-port check is recorded in README.md.
+**Status:** Passed in the same-PC network simulation at `6f95122`. A fresh no-argument server listened on `8989`, and an `nc` client in a separate network namespace connected to its IP address.
 
 ### F02 — Usage
 
@@ -83,7 +105,7 @@ Try running `./TCPChat 2525`.
 
 Is the server listening for connections on the port 2525?
 
-**Status:** Not rerun on port `2525` in this session because an existing server occupied it. Startup and connections passed on available custom ports, including leading-zero input; the earlier `2525` pass is recorded in README.md.
+**Status:** Passed in the same-PC network simulation at `6f95122`. A fresh server started with `2525` listened on that port and exchanged chat messages with clients in three separate network namespaces.
 
 ### F04 — Two-Client Connection
 
@@ -139,7 +161,7 @@ Try creating a server and use 2 or 3 different computers and create one Client f
 
 Did the server/Clients connect with success?
 
-**Status:** Not run. No second computer was available. Localhost evidence does not satisfy this check.
+**Status:** Not run on different computers. Separate-network-namespace and Windows-to-WSL simulations passed on the same physical computer; they are recorded above as additional evidence, not an F10 pass.
 
 ### F11 — Four Clients and One Disconnect
 
@@ -197,7 +219,7 @@ Are the students using only the allowed packages?
 
 As an auditor, is this project up to every standard? If not, why are you failing the project?(Empty Work, Incomplete Work, Invalid compilation, Cheating, Crashing, Leaks)
 
-**Status:** Pending. Local checks found no failure in the exercised scenarios, but F10, exact-port startup reruns, evaluator toolchain/test-import acceptance, and the final audit review remain outstanding. No final pass/fail verdict is recorded.
+**Status:** Pending. Local checks and same-PC network simulations found no failure in the exercised scenarios. F10, evaluator toolchain/test-import acceptance, and the final audit review remain outstanding. No final pass/fail verdict is recorded.
 
 ## Bonus
 
