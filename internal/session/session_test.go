@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"net"
 	"net-cat/internal/chat"
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,5 +75,36 @@ func TestSessionLifecycle(t *testing.T) {
 	case <-released:
 	case <-time.After(time.Second):
 		t.Fatal("release was never called")
+	}
+}
+
+func TestTooLongMessage(t *testing.T) {
+	server, client := net.Pipe()
+	defer client.Close()
+	room := &fakeRoom{submits: make(chan string, 1), left: make(chan chat.ClientID, 1)}
+
+	Start(server, "Maria", bufio.NewReader(server), func() {}, room)
+
+	out := bufio.NewReader(client)
+	out.ReadString('\n') // history
+	out.ReadString('\n') // join notice
+
+	// 4097 bytes: one over the limit.
+	client.Write([]byte(strings.Repeat("a", maxMessage+1) + "\n"))
+	client.SetReadDeadline(time.Now().Add(time.Second))
+	got, _ := out.ReadString('\n')
+	if got != "Message too long. Maximum is 4096 bytes.\n" {
+		t.Fatalf("got %q, want the too-long error", got)
+	}
+
+	// The connection must still work afterwards.
+	client.Write([]byte("hi\n"))
+	select {
+	case msg := <-room.submits:
+		if msg != "hi" {
+			t.Fatalf("Submit got %q, want %q", msg, "hi")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Submit was never called after the long line")
 	}
 }
